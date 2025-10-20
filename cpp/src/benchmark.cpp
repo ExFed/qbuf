@@ -89,7 +89,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
             }
             std::size_t enqueued = 0;
             while (enqueued < batch_size) {
-                enqueued += queue.try_enqueue_bulk(batch.data() + enqueued,
+                enqueued += queue.try_enqueue(batch.data() + enqueued,
                                                      batch_size - enqueued);
                 if (enqueued < batch_size) {
                     std::this_thread::yield();
@@ -104,7 +104,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
         int total_consumed = 0;
         int target = iterations * batch_size;
         while (total_consumed < target) {
-            std::size_t dequeued = queue.try_dequeue_bulk(batch.data(), batch_size);
+            std::size_t dequeued = queue.try_dequeue(batch.data(), batch_size);
             total_consumed += dequeued;
             if (dequeued == 0) {
                 std::this_thread::yield();

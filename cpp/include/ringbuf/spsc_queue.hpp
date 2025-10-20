@@ -28,7 +28,7 @@ public:
     SPSCQueue() : head_(0), tail_(0) {}
 
     /**
-     * @brief Try to enqueue an element
+     * @brief Try to enqueue a single element
      *
      * @param value The value to enqueue
      * @return true if successful, false if queue is full
@@ -47,7 +47,7 @@ public:
     }
 
     /**
-     * @brief Try to enqueue an element (move semantics)
+     * @brief Try to enqueue a single element (move semantics)
      *
      * @param value The value to enqueue
      * @return true if successful, false if queue is full
@@ -66,7 +66,7 @@ public:
     }
 
     /**
-     * @brief Try to dequeue an element
+     * @brief Try to dequeue a single element
      *
      * @return std::optional containing the value if successful, std::nullopt if queue is empty
      */
@@ -113,7 +113,7 @@ public:
      * @param count Number of elements to enqueue
      * @return Number of elements successfully enqueued
      */
-    std::size_t try_enqueue_bulk(const T* data, std::size_t count) {
+    std::size_t try_enqueue(const T* data, std::size_t count) {
         if (count == 0) return 0;
 
         const auto current_tail = tail_.load(std::memory_order_relaxed);
@@ -178,7 +178,7 @@ public:
      * @param count Maximum number of elements to dequeue
      * @return Number of elements successfully dequeued
      */
-    std::size_t try_dequeue_bulk(T* data, std::size_t count) {
+    std::size_t try_dequeue(T* data, std::size_t count) {
         if (count == 0) return 0;
 
         const auto current_head = head_.load(std::memory_order_relaxed);
@@ -291,13 +291,13 @@ public:
      * @param data Pointer to array of elements to enqueue
      * @param count Number of elements to enqueue
      */
-    void enqueue_bulk(const T* data, std::size_t count) {
+    void enqueue(const T* data, std::size_t count) {
         if (count == 0) return;
 
         std::size_t total_enqueued = 0;
         while (total_enqueued < count) {
-            std::size_t enqueued = try_enqueue_bulk(data + total_enqueued,
-                                                     count - total_enqueued);
+            std::size_t enqueued = try_enqueue(data + total_enqueued,
+                                                count - total_enqueued);
             total_enqueued += enqueued;
 
             if (total_enqueued < count) {
@@ -316,13 +316,13 @@ public:
      * @param data Pointer to output array
      * @param count Number of elements to dequeue
      */
-    void dequeue_bulk(T* data, std::size_t count) {
+    void dequeue(T* data, std::size_t count) {
         if (count == 0) return;
 
         std::size_t total_dequeued = 0;
         while (total_dequeued < count) {
-            std::size_t dequeued = try_dequeue_bulk(data + total_dequeued,
-                                                     count - total_dequeued);
+            std::size_t dequeued = try_dequeue(data + total_dequeued,
+                                                count - total_dequeued);
             total_dequeued += dequeued;
 
             if (total_dequeued < count) {

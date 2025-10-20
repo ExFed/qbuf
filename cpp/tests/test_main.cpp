@@ -164,12 +164,12 @@ void test_bulk_enqueue_dequeue() {
     std::vector<int> output(input.size());
 
     // Enqueue all elements
-    std::size_t enqueued = queue.try_enqueue_bulk(input.data(), input.size());
+    std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
     assert(enqueued == input.size());
     assert(queue.size() == input.size());
 
     // Dequeue all elements
-    std::size_t dequeued = queue.try_dequeue_bulk(output.data(), output.size());
+    std::size_t dequeued = queue.try_dequeue(output.data(), output.size());
     assert(dequeued == input.size());
     assert(queue.empty());
 
@@ -194,12 +194,12 @@ void test_bulk_partial() {
     std::vector<int> consumed_output;
 
     // Enqueue first batch
-    std::size_t enqueued1 = queue.try_enqueue_bulk(input.data(), 4);
+    std::size_t enqueued1 = queue.try_enqueue(input.data(), 4);
     assert(enqueued1 == 4);
 
     // Dequeue partial
     std::vector<int> output1(2);
-    std::size_t dequeued1 = queue.try_dequeue_bulk(output1.data(), 2);
+    std::size_t dequeued1 = queue.try_dequeue(output1.data(), 2);
     assert(dequeued1 == 2);
     assert(output1[0] == 1);
     assert(output1[1] == 2);
@@ -208,12 +208,12 @@ void test_bulk_partial() {
     consumed_output.insert(consumed_output.end(), output1.begin(), output1.end());
 
     // Enqueue more
-    std::size_t enqueued2 = queue.try_enqueue_bulk(&input[4], 4);
+    std::size_t enqueued2 = queue.try_enqueue(&input[4], 4);
     assert(enqueued2 == 4);
 
     // Dequeue remaining
     std::vector<int> output2(6);
-    std::size_t dequeued2 = queue.try_dequeue_bulk(output2.data(), 6);
+    std::size_t dequeued2 = queue.try_dequeue(output2.data(), 6);
     assert(dequeued2 == 6);
     consumed_output.insert(consumed_output.end(), output2.begin(), output2.begin() + 6);
 
@@ -237,11 +237,11 @@ void test_bulk_full_queue() {
     std::vector<int> input2 = {7, 8, 9, 10};
 
     // Fill most of the queue (capacity is 8, so we can store 7)
-    std::size_t enqueued1 = queue.try_enqueue_bulk(input1.data(), input1.size());
+    std::size_t enqueued1 = queue.try_enqueue(input1.data(), input1.size());
     assert(enqueued1 == 6);
 
     // Try to enqueue more than available space
-    std::size_t enqueued2 = queue.try_enqueue_bulk(input2.data(), input2.size());
+    std::size_t enqueued2 = queue.try_enqueue(input2.data(), input2.size());
     assert(enqueued2 == 1); // Only 1 slot available
 
     // Verify size
@@ -255,7 +255,7 @@ void test_bulk_empty_dequeue() {
     SPSCQueue<int, 16> queue;
 
     std::vector<int> output(10);
-    std::size_t dequeued = queue.try_dequeue_bulk(output.data(), 10);
+    std::size_t dequeued = queue.try_dequeue(output.data(), 10);
     assert(dequeued == 0);
     assert(queue.empty());
 
@@ -274,17 +274,17 @@ void test_bulk_wrap_around() {
     std::vector<int> expected_order = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     // Enqueue first batch
-    std::size_t e1 = queue.try_enqueue_bulk(batch1.data(), batch1.size());
+    std::size_t e1 = queue.try_enqueue(batch1.data(), batch1.size());
     assert(e1 == 4);
 
     // Consume 2 elements
-    std::size_t d1 = queue.try_dequeue_bulk(output.data(), 2);
+    std::size_t d1 = queue.try_dequeue(output.data(), 2);
     assert(d1 == 2);
     assert(output[0] == 1 && output[1] == 2);
     assert(output[0] == batch1[0] && output[1] == batch1[1]);
 
     // Enqueue more
-    std::size_t e2 = queue.try_enqueue_bulk(batch2.data(), batch2.size());
+    std::size_t e2 = queue.try_enqueue(batch2.data(), batch2.size());
     assert(e2 == 2);
 
     // Now queue should have: [3, 4, 5, 6] with tail wrapped
@@ -292,12 +292,12 @@ void test_bulk_wrap_around() {
     assert(size == 4);
 
     // Enqueue another batch (this should handle wrap-around)
-    std::size_t e3 = queue.try_enqueue_bulk(batch3.data(), batch3.size());
+    std::size_t e3 = queue.try_enqueue(batch3.data(), batch3.size());
     assert(e3 == 3); // Can only fit 3 more (capacity is 8, 1 reserved)
 
     // Dequeue all
     std::vector<int> final_output(7);
-    std::size_t d2 = queue.try_dequeue_bulk(final_output.data(), 7);
+    std::size_t d2 = queue.try_dequeue(final_output.data(), 7);
     assert(d2 == 7);
 
     // Verify order: 3, 4, 5, 6, 7, 8, 9
@@ -323,10 +323,10 @@ void test_bulk_with_strings() {
     std::vector<std::string> input = {"hello", "world", "test", "bulk"};
     std::vector<std::string> output(input.size());
 
-    std::size_t enqueued = queue.try_enqueue_bulk(input.data(), input.size());
+    std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
     assert(enqueued == input.size());
 
-    std::size_t dequeued = queue.try_dequeue_bulk(output.data(), output.size());
+    std::size_t dequeued = queue.try_dequeue(output.data(), output.size());
     assert(dequeued == input.size());
 
     // Verify inputs produced match outputs consumed in same order
@@ -356,7 +356,7 @@ void test_bulk_concurrent() {
             }
             std::size_t enqueued = 0;
             while (enqueued < batch_size) {
-                enqueued += queue.try_enqueue_bulk(batch.data() + enqueued,
+                enqueued += queue.try_enqueue(batch.data() + enqueued,
                                                      batch_size - enqueued);
                 if (enqueued < batch_size) {
                     std::this_thread::yield();
@@ -372,7 +372,7 @@ void test_bulk_concurrent() {
         std::vector<int> buffer(batch_size);
         int total = 0;
         while (total < total_elements) {
-            std::size_t dequeued = queue.try_dequeue_bulk(buffer.data(), batch_size);
+            std::size_t dequeued = queue.try_dequeue(buffer.data(), batch_size);
             for (std::size_t i = 0; i < dequeued; ++i) {
                 consumed.push_back(buffer[i]);
             }
@@ -556,7 +556,7 @@ void test_blocking_bulk_enqueue() {
 
     // Fill most of the queue
     std::vector<int> initial_batch = {1, 2, 3, 4, 5, 6, 7};
-    queue.enqueue_bulk(initial_batch.data(), initial_batch.size());
+    queue.enqueue(initial_batch.data(), initial_batch.size());
     assert(queue.size() == 7);
 
     // Try to enqueue a large batch (will block until consumer drains)
@@ -567,7 +567,7 @@ void test_blocking_bulk_enqueue() {
 
     std::atomic<bool> producer_done{false};
     std::thread producer([&queue, &large_batch, &producer_done]() {
-        queue.enqueue_bulk(large_batch.data(), large_batch.size());
+        queue.enqueue(large_batch.data(), large_batch.size());
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -611,7 +611,7 @@ void test_blocking_bulk_dequeue() {
 
     // Consumer thread tries to dequeue 50 elements (will block)
     std::thread consumer([&queue, &output, &consumer_done]() {
-        queue.dequeue_bulk(output.data(), 50);
+        queue.dequeue(output.data(), 50);
         consumer_done.store(true, std::memory_order_release);
     });
 
@@ -627,8 +627,8 @@ void test_blocking_bulk_dequeue() {
         batch2[i] = 25 + i;
     }
 
-    queue.enqueue_bulk(batch1.data(), 25);
-    queue.enqueue_bulk(batch2.data(), 25);
+    queue.enqueue(batch1.data(), 25);
+    queue.enqueue(batch2.data(), 25);
 
     // Wait for consumer to complete
     consumer.join();
@@ -657,7 +657,7 @@ void test_blocking_bulk_concurrent() {
             for (int i = 0; i < batch_size; ++i) {
                 batch[i] = b * batch_size + i;
             }
-            queue.enqueue_bulk(batch.data(), batch_size);
+            queue.enqueue(batch.data(), batch_size);
         }
     });
 
@@ -669,7 +669,7 @@ void test_blocking_bulk_concurrent() {
         while (total_dequeued < total_elements) {
             int remaining = total_elements - total_dequeued;
             int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
-            queue.dequeue_bulk(batch.data(), to_dequeue);
+            queue.dequeue(batch.data(), to_dequeue);
             for (int i = 0; i < to_dequeue; ++i) {
                 consumed.push_back(batch[i]);
             }
@@ -701,12 +701,12 @@ void test_blocking_bulk_mixed() {
     for (int i = 0; i < 8; ++i) input2[i] = 100 + i;
 
     // Enqueue with blocking bulk
-    queue.enqueue_bulk(input1.data(), input1.size());
+    queue.enqueue(input1.data(), input1.size());
     assert(queue.size() == 10);
 
-    // Dequeue with non-blocking try_dequeue_bulk
+    // Dequeue with non-blocking try_dequeue
     std::vector<int> output1(5);
-    std::size_t dequeued = queue.try_dequeue_bulk(output1.data(), 5);
+    std::size_t dequeued = queue.try_dequeue(output1.data(), 5);
     assert(dequeued == 5);
     assert(queue.size() == 5);
 
@@ -715,14 +715,14 @@ void test_blocking_bulk_mixed() {
         assert(output1[i] == input1[i]);
     }
 
-    // Enqueue more with try_enqueue_bulk
-    std::size_t enqueued = queue.try_enqueue_bulk(input2.data(), 8);
+    // Enqueue more with try_enqueue
+    std::size_t enqueued = queue.try_enqueue(input2.data(), 8);
     assert(enqueued == 8);
     assert(queue.size() == 13);
 
     // Dequeue all remaining with blocking bulk
     std::vector<int> output2(13);
-    queue.dequeue_bulk(output2.data(), 13);
+    queue.dequeue(output2.data(), 13);
     assert(queue.empty());
 
     // Verify sequence - outputs match inputs in order
@@ -751,12 +751,12 @@ void test_blocking_bulk_with_strings() {
 
     // Producer: enqueue all with blocking bulk
     std::thread producer([&queue, &input]() {
-        queue.enqueue_bulk(input.data(), input.size());
+        queue.enqueue(input.data(), input.size());
     });
 
     // Consumer: dequeue all with blocking bulk
     std::thread consumer([&queue, &output]() {
-        queue.dequeue_bulk(output.data(), output.size());
+        queue.dequeue(output.data(), output.size());
     });
 
     producer.join();
