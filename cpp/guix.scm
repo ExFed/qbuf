@@ -16,4 +16,4 @@
   (description
    "Research implementation of thread-safe buffers and queues using modern C++23.")
   (home-page "https://example.com/qbuf")
-  (license license:expat))
+  (license license:unlicense))

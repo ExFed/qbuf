@@ -14,7 +14,7 @@ ctest
 With Guix:
 
 ```bash
-guix shell -m manifest.scm -- sh -c 'cd build && cmake .. && make && ctest'
+guix shell -m manifest.scm -- sh -c 'cmake -S . -B build && cmake --build build && ctest'
 ```
 
 ## Features
@@ -89,7 +89,7 @@ queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 |:---|:---|:---|:---|
 | `try_enqueue(value)` | Non-blocking | `bool` | Returns immediately, false if full |
 | `try_enqueue(T&&)` | Non-blocking | `bool` | Returns immediately, false if full (move) |
-| `try_dequeue()` | Non-blocking | `std::optional<T>` | Returns immediately, nullopt if empty |
+| `try_dequeue()` | Non-blocking | `std::optional<T>` | Returns immediately, `nullopt` if empty |
 | `enqueue(value)` | Blocking | `void` | Blocks until enqueued |
 | `enqueue(T&&)` | Blocking | `void` | Blocks until enqueued (move) |
 | `dequeue()` | Blocking | `T` | Blocks until element available |
@@ -98,10 +98,10 @@ queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 
 | Method | Type | Returns | Behavior |
 |:---|:---|:---|:---|
-| `try_enqueue(ptr, count)` | Non-blocking | `std::size_t` | Enqueues up to `count` elements, returns count enqueued |
-| `try_dequeue(ptr, count)` | Non-blocking | `std::size_t` | Dequeues up to `count` elements, returns count dequeued |
-| `enqueue(ptr, count)` | Blocking | `void` | Blocks until all `count` elements enqueued |
-| `dequeue(ptr, count)` | Blocking | `void` | Blocks until all `count` elements dequeued |
+| `try_enqueue(T*, count)` | Non-blocking | `std::size_t` | Enqueues up to `count` elements, returns count enqueued |
+| `try_dequeue(T*, count)` | Non-blocking | `std::size_t` | Dequeues up to `count` elements, returns count dequeued |
+| `enqueue(T*, count)` | Blocking | `void` | Blocks until all `count` elements enqueued |
+| `dequeue(T*, count)` | Blocking | `void` | Blocks until all `count` elements dequeued |
 
 ### Utility Methods
 
@@ -112,13 +112,7 @@ queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 
 ## Performance
 
-Bulk operations provide up to **2-3x throughput improvement** for medium to large batch sizes compared to individual enqueue/dequeue calls. See [BENCHMARK.md](BENCHMARK.md) for detailed performance analysis.
-
 ```bash
 # Run benchmarks
-cd cpp && guix shell -m manifest.scm -- sh -c 'cd build && cmake .. && make && ./benchmark'
+guix shell -m manifest.scm -- sh -c 'cmake -S . -B build && cmake --build build && ./build/benchmark'
 ```
-
-## License
-
-MIT/Expat
