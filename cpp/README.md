@@ -54,10 +54,14 @@ if (queue.try_enqueue(42)) {
     }
 }
 
-// Blocking single element operations
-queue.enqueue(42);  // Blocks until successful
-int value = queue.dequeue();  // Blocks until element available
-std::cout << value << std::endl;
+// Blocking single element operations with timeout
+using namespace std::chrono_literals;
+if (queue.enqueue(42, 1s)) {  // Blocks up to 1 second
+    auto value = queue.dequeue(1s);  // Blocks up to 1 second
+    if (value) {
+        std::cout << *value << std::endl;
+    }
+}
 
 // Non-blocking bulk operations (partial results OK, returns count)
 std::vector<int> batch(100);
@@ -65,11 +69,12 @@ std::size_t enqueued = queue.try_enqueue(batch.data(), batch.size());
 std::vector<int> output(100);
 std::size_t dequeued = queue.try_dequeue(output.data(), 100);
 
-// Blocking bulk operations (entire batch guaranteed)
+// Blocking bulk operations with timeout (entire batch guaranteed or timeout)
 std::vector<int> batch(100);
-queue.enqueue(batch.data(), batch.size());  // Blocks until all enqueued
-std::vector<int> output(100);
-queue.dequeue(output.data(), 100);  // Blocks until all dequeued
+if (queue.enqueue(batch.data(), batch.size(), 1s)) {  // Blocks up to 1 second
+    std::vector<int> output(100);
+    std::size_t dequeued = queue.dequeue(output.data(), 100, 1s);  // Blocks up to 1 second
+}
 ```
 
 **Features:**
@@ -92,9 +97,9 @@ queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 | `try_enqueue(value)` | Non-blocking | `bool` | Returns immediately, false if full |
 | `try_enqueue(T&&)` | Non-blocking | `bool` | Returns immediately, false if full (move) |
 | `try_dequeue()` | Non-blocking | `std::optional<T>` | Returns immediately, `nullopt` if empty |
-| `enqueue(value)` | Blocking | `void` | Blocks until enqueued |
-| `enqueue(T&&)` | Blocking | `void` | Blocks until enqueued (move) |
-| `dequeue()` | Blocking | `T` | Blocks until element available |
+| `enqueue(value, timeout)` | Blocking | `bool` | Blocks up to timeout, returns success |
+| `enqueue(T&&, timeout)` | Blocking | `bool` | Blocks up to timeout, returns success (move) |
+| `dequeue(timeout)` | Blocking | `std::optional<T>` | Blocks up to timeout, returns element or `nullopt` |
 
 ### Bulk Operations
 
@@ -102,8 +107,8 @@ queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 |:---|:---|:---|:---|
 | `try_enqueue(T*, count)` | Non-blocking | `std::size_t` | Enqueues up to `count` elements, returns count enqueued |
 | `try_dequeue(T*, count)` | Non-blocking | `std::size_t` | Dequeues up to `count` elements, returns count dequeued |
-| `enqueue(T*, count)` | Blocking | `void` | Blocks until all `count` elements enqueued |
-| `dequeue(T*, count)` | Blocking | `void` | Blocks until all `count` elements dequeued |
+| `enqueue(T*, count, timeout)` | Blocking | `bool` | Blocks up to timeout until all elements enqueued, returns success |
+| `dequeue(T*, count, timeout)` | Blocking | `std::size_t` | Blocks up to timeout until all elements dequeued, returns count dequeued |
 
 ### Utility Methods
 
