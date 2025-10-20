@@ -66,44 +66,6 @@ public:
     }
 
     /**
-     * @brief Try to dequeue a single element
-     *
-     * @return std::optional containing the value if successful, std::nullopt if queue is empty
-     */
-    std::optional<T> try_dequeue() {
-        const auto current_head = head_.load(std::memory_order_relaxed);
-
-        if (current_head == tail_.load(std::memory_order_acquire)) {
-            return std::nullopt; // Queue is empty
-        }
-
-        T value = std::move(buffer_[current_head]);
-        head_.store(increment(current_head), std::memory_order_release);
-        return value;
-    }
-
-    /**
-     * @brief Check if the queue is empty
-     *
-     * @return true if empty, false otherwise
-     */
-    bool empty() const {
-        return head_.load(std::memory_order_acquire) ==
-               tail_.load(std::memory_order_acquire);
-    }
-
-    /**
-     * @brief Get approximate size of the queue
-     *
-     * @return Approximate number of elements in the queue
-     */
-    std::size_t size() const {
-        const auto head = head_.load(std::memory_order_acquire);
-        const auto tail = tail_.load(std::memory_order_acquire);
-        return (tail >= head) ? (tail - head) : (Capacity - head + tail);
-    }
-
-    /**
      * @brief Try to enqueue multiple elements efficiently
      *
      * Enqueues up to `count` elements from the input array. Returns the number
@@ -166,6 +128,23 @@ public:
 
         tail_.store(tail_idx, std::memory_order_release);
         return enqueued_total;
+    }
+
+    /**
+     * @brief Try to dequeue a single element
+     *
+     * @return std::optional containing the value if successful, std::nullopt if queue is empty
+     */
+    std::optional<T> try_dequeue() {
+        const auto current_head = head_.load(std::memory_order_relaxed);
+
+        if (current_head == tail_.load(std::memory_order_acquire)) {
+            return std::nullopt; // Queue is empty
+        }
+
+        T value = std::move(buffer_[current_head]);
+        head_.store(increment(current_head), std::memory_order_release);
+        return value;
     }
 
     /**
@@ -264,24 +243,6 @@ public:
     }
 
     /**
-     * @brief Block until an element can be dequeued
-     *
-     * Blocks the calling thread until an element is successfully dequeued.
-     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
-     *
-     * @return The dequeued element
-     */
-    T dequeue() {
-        while (true) {
-            auto value = try_dequeue();
-            if (value.has_value()) {
-                return std::move(value.value());
-            }
-            std::this_thread::yield();
-        }
-    }
-
-    /**
      * @brief Block until all elements are enqueued
      *
      * Blocks until all `count` elements from the input array are successfully enqueued.
@@ -303,6 +264,24 @@ public:
             if (total_enqueued < count) {
                 std::this_thread::yield();
             }
+        }
+    }
+
+    /**
+     * @brief Block until an element can be dequeued
+     *
+     * Blocks the calling thread until an element is successfully dequeued.
+     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     *
+     * @return The dequeued element
+     */
+    T dequeue() {
+        while (true) {
+            auto value = try_dequeue();
+            if (value.has_value()) {
+                return std::move(value.value());
+            }
+            std::this_thread::yield();
         }
     }
 
@@ -329,6 +308,27 @@ public:
                 std::this_thread::yield();
             }
         }
+    }
+
+    /**
+     * @brief Check if the queue is empty
+     *
+     * @return true if empty, false otherwise
+     */
+    bool empty() const {
+        return head_.load(std::memory_order_acquire) ==
+               tail_.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Get approximate size of the queue
+     *
+     * @return Approximate number of elements in the queue
+     */
+    std::size_t size() const {
+        const auto head = head_.load(std::memory_order_acquire);
+        const auto tail = tail_.load(std::memory_order_acquire);
+        return (tail >= head) ? (tail - head) : (Capacity - head + tail);
     }
 
 private:
