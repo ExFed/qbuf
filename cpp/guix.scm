@@ -12,8 +12,8 @@
   (build-system cmake-build-system)
   (arguments `(#:tests? #t))
   (native-inputs (list gcc-11 cmake))
-  (synopsis "Thread-safe buffers and queues in C++23")
+  (synopsis "Thread-safe buffers and queues in C++")
   (description
-   "Research implementation of thread-safe buffers and queues using modern C++23.")
+   "Research implementation of thread-safe buffers and queues using modern C++.")
   (home-page "https://example.com/qbuf")
   (license license:unlicense))

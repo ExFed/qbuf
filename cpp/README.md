@@ -1,6 +1,6 @@
 # C++ Thread-Safe Buffers and Queues
 
-Header-only C++23 implementations of lock-free thread-safe buffers and queues.
+Header-only implementations of lock-free thread-safe buffers and queues.
 
 ## Quick Build
 
