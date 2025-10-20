@@ -4,6 +4,9 @@ project(qbuf-cpp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Find threads library for std::thread support
+find_package(Threads REQUIRED)
+
 # Header-only library
 add_library(qbuf INTERFACE)
 target_include_directories(qbuf INTERFACE include)
@@ -18,10 +21,10 @@ install(
 # Tests
 enable_testing()
 add_executable(test_runner tests/test_main.cpp)
-target_link_libraries(test_runner PRIVATE qbuf)
+target_link_libraries(test_runner PRIVATE qbuf Threads::Threads)
 add_test(NAME tests COMMAND test_runner)
 
 # Benchmark
 add_executable(benchmark src/benchmark.cpp)
-target_link_libraries(benchmark PRIVATE qbuf)
+target_link_libraries(benchmark PRIVATE qbuf Threads::Threads)
 target_compile_options(benchmark PRIVATE -O3)
