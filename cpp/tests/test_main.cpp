@@ -4,13 +4,13 @@
 #include <vector>
 #include <string>
 #include <atomic>
-#include <qbuf/spsc_queue.hpp>
+#include <qbuf/spsc.hpp>
 
 using namespace qbuf;
 
 void test_basic_operations() {
     std::cout << "Testing basic operations..." << std::endl;
-    SPSCQueue<int, 8> queue;
+    SPSC<int, 8> queue;
 
     // Test empty queue
     assert(queue.empty());
@@ -46,7 +46,7 @@ void test_basic_operations() {
 
 void test_queue_full() {
     std::cout << "Testing queue full condition..." << std::endl;
-    SPSCQueue<int, 8> queue;
+    SPSC<int, 8> queue;
 
     // Capacity is 8, but we can only store 7 elements (one slot reserved)
     for (int i = 0; i < 7; ++i) {
@@ -61,7 +61,7 @@ void test_queue_full() {
 
 void test_fifo_ordering() {
     std::cout << "Testing FIFO ordering..." << std::endl;
-    SPSCQueue<int, 8> queue;
+    SPSC<int, 8> queue;
 
     std::vector<int> input = {10, 20, 30, 40, 50};
     std::vector<int> output;
@@ -88,7 +88,7 @@ void test_fifo_ordering() {
 
 void test_move_semantics() {
     std::cout << "Testing move semantics..." << std::endl;
-    SPSCQueue<std::string, 8> queue;
+    SPSC<std::string, 8> queue;
 
     std::string str = "Hello, World!";
     assert(queue.try_enqueue(std::move(str)));
@@ -111,7 +111,7 @@ void test_move_semantics() {
 
 void test_concurrent() {
     std::cout << "Testing concurrent producer-consumer..." << std::endl;
-    SPSCQueue<int, 256> queue;
+    SPSC<int, 256> queue;
     constexpr int num_elements = 1000;
     std::atomic<bool> producer_done{false};
 
@@ -158,7 +158,7 @@ void test_concurrent() {
 
 void test_bulk_enqueue_dequeue() {
     std::cout << "Testing bulk enqueue/dequeue..." << std::endl;
-    SPSCQueue<int, 16> queue;
+    SPSC<int, 16> queue;
 
     std::vector<int> input = {10, 20, 30, 40, 50, 60, 70, 80};
     std::vector<int> output(input.size());
@@ -188,7 +188,7 @@ void test_bulk_enqueue_dequeue() {
 
 void test_bulk_partial() {
     std::cout << "Testing partial bulk operations..." << std::endl;
-    SPSCQueue<int, 16> queue;
+    SPSC<int, 16> queue;
 
     std::vector<int> input = {1, 2, 3, 4, 5, 6, 7, 8};
     std::vector<int> consumed_output;
@@ -231,7 +231,7 @@ void test_bulk_partial() {
 
 void test_bulk_full_queue() {
     std::cout << "Testing bulk enqueue on full queue..." << std::endl;
-    SPSCQueue<int, 8> queue;
+    SPSC<int, 8> queue;
 
     std::vector<int> input1 = {1, 2, 3, 4, 5, 6};
     std::vector<int> input2 = {7, 8, 9, 10};
@@ -252,7 +252,7 @@ void test_bulk_full_queue() {
 
 void test_bulk_empty_dequeue() {
     std::cout << "Testing bulk dequeue from empty queue..." << std::endl;
-    SPSCQueue<int, 16> queue;
+    SPSC<int, 16> queue;
 
     std::vector<int> output(10);
     std::size_t dequeued = queue.try_dequeue(output.data(), 10);
@@ -264,7 +264,7 @@ void test_bulk_empty_dequeue() {
 
 void test_bulk_wrap_around() {
     std::cout << "Testing bulk operations with wrap-around..." << std::endl;
-    SPSCQueue<int, 8> queue;
+    SPSC<int, 8> queue;
 
     // Fill, partially consume, then fill again to create wrap-around
     std::vector<int> batch1 = {1, 2, 3, 4};
@@ -318,7 +318,7 @@ void test_bulk_wrap_around() {
 
 void test_bulk_with_strings() {
     std::cout << "Testing bulk operations with strings..." << std::endl;
-    SPSCQueue<std::string, 16> queue;
+    SPSC<std::string, 16> queue;
 
     std::vector<std::string> input = {"hello", "world", "test", "bulk"};
     std::vector<std::string> output(input.size());
@@ -341,7 +341,7 @@ void test_bulk_with_strings() {
 
 void test_bulk_concurrent() {
     std::cout << "Testing concurrent bulk operations..." << std::endl;
-    SPSCQueue<int, 512> queue;
+    SPSC<int, 512> queue;
     constexpr int num_batches = 50;
     constexpr int batch_size = 20;
     constexpr int total_elements = num_batches * batch_size;
@@ -399,7 +399,7 @@ void test_bulk_concurrent() {
 
 void test_blocking_enqueue() {
     std::cout << "Testing blocking enqueue..." << std::endl;
-    SPSCQueue<int, 8> queue;
+    SPSC<int, 8> queue;
 
     // Fill the queue to near capacity (7 elements max)
     for (int i = 0; i < 7; ++i) {
@@ -432,7 +432,7 @@ void test_blocking_enqueue() {
 
 void test_blocking_dequeue() {
     std::cout << "Testing blocking dequeue..." << std::endl;
-    SPSCQueue<int, 16> queue;
+    SPSC<int, 16> queue;
 
     std::atomic<int> dequeued_value{-1};
     std::atomic<bool> consumer_done{false};
@@ -461,7 +461,7 @@ void test_blocking_dequeue() {
 
 void test_blocking_concurrent() {
     std::cout << "Testing blocking concurrent operations..." << std::endl;
-    SPSCQueue<int, 256> queue;
+    SPSC<int, 256> queue;
     constexpr int num_elements = 1000;
 
     // Producer thread
@@ -494,7 +494,7 @@ void test_blocking_concurrent() {
 
 void test_blocking_with_strings() {
     std::cout << "Testing blocking operations with strings..." << std::endl;
-    SPSCQueue<std::string, 16> queue;
+    SPSC<std::string, 16> queue;
 
     std::string result;
     std::atomic<bool> done{false};
@@ -521,7 +521,7 @@ void test_blocking_with_strings() {
 
 void test_blocking_stress() {
     std::cout << "Testing blocking operations under stress..." << std::endl;
-    SPSCQueue<int, 64> queue;
+    SPSC<int, 64> queue;
     constexpr int total_ops = 10000;
     std::atomic<int> consumed_count{0};
 
@@ -552,7 +552,7 @@ void test_blocking_stress() {
 
 void test_blocking_bulk_enqueue() {
     std::cout << "Testing blocking bulk enqueue..." << std::endl;
-    SPSCQueue<int, 16> queue;
+    SPSC<int, 16> queue;
 
     // Fill most of the queue
     std::vector<int> initial_batch = {1, 2, 3, 4, 5, 6, 7};
@@ -604,7 +604,7 @@ void test_blocking_bulk_enqueue() {
 
 void test_blocking_bulk_dequeue() {
     std::cout << "Testing blocking bulk dequeue..." << std::endl;
-    SPSCQueue<int, 128> queue;
+    SPSC<int, 128> queue;
 
     std::vector<int> output(50);
     std::atomic<bool> consumer_done{false};
@@ -645,7 +645,7 @@ void test_blocking_bulk_dequeue() {
 
 void test_blocking_bulk_concurrent() {
     std::cout << "Testing blocking bulk concurrent operations..." << std::endl;
-    SPSCQueue<int, 256> queue;
+    SPSC<int, 256> queue;
     constexpr int num_batches = 100;
     constexpr int batch_size = 50;
     constexpr int total_elements = num_batches * batch_size;
@@ -692,7 +692,7 @@ void test_blocking_bulk_concurrent() {
 
 void test_blocking_bulk_mixed() {
     std::cout << "Testing mixed blocking and non-blocking bulk operations..." << std::endl;
-    SPSCQueue<int, 64> queue;
+    SPSC<int, 64> queue;
 
     std::vector<int> input1(10);
     for (int i = 0; i < 10; ++i) input1[i] = i;
@@ -741,7 +741,7 @@ void test_blocking_bulk_mixed() {
 
 void test_blocking_bulk_with_strings() {
     std::cout << "Testing blocking bulk with strings..." << std::endl;
-    SPSCQueue<std::string, 32> queue;
+    SPSC<std::string, 32> queue;
 
     std::vector<std::string> input = {
         "hello", "world", "blocking", "bulk", "operations",
@@ -774,7 +774,7 @@ void test_blocking_bulk_with_strings() {
 }
 
 int main() {
-    std::cout << "\n=== Running SPSCQueue Tests ===" << std::endl;
+    std::cout << "\n=== Running SPSC Tests ===" << std::endl;
     try {
         test_basic_operations();
         test_queue_full();

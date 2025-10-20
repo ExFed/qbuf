@@ -1,4 +1,4 @@
-#include <qbuf/spsc_queue.hpp>
+#include <qbuf/spsc.hpp>
 #include <iostream>
 #include <vector>
 #include <chrono>
@@ -34,7 +34,7 @@ void benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    SPSCQueue<int, Capacity> queue;
+    SPSC<int, Capacity> queue;
 
     // Producer thread
     Timer timer;
@@ -79,7 +79,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    SPSCQueue<int, Capacity> queue;
+    SPSC<int, Capacity> queue;
 
     // Producer thread
     Timer timer;
@@ -128,7 +128,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
 // Benchmark with varying batch sizes
 void benchmark_comparison() {
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║           SPSCQueue Performance Comparison                 ║" << std::endl;
+    std::cout << "║           SPSC Performance Comparison                      ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
 
     std::vector<std::pair<int, int>> configs = {
@@ -173,7 +173,7 @@ void benchmark_comparison() {
 }
 
 int main() {
-    std::cout << "SPSCQueue Benchmark: Individual vs Bulk Operations\n" << std::endl;
+    std::cout << "SPSC Benchmark: Individual vs Bulk Operations\n" << std::endl;
 
     benchmark_comparison();
 

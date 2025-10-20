@@ -26,23 +26,23 @@ guix shell -m manifest.scm -- sh -c 'cmake -S . -B build && cmake --build build 
 ## Project Structure
 
 ```
-include/qbuf/spsc_queue.hpp  - SPSC queue implementation
+include/qbuf/spsc.hpp  - SPSC queue implementation
 tests/test_main.cpp              - Tests
 CMakeLists.txt                   - Simple CMake config
 guix.scm                         - Guix package definition
 manifest.scm                     - Guix dev environment
 ```
 
-## SPSCQueue
+## SPSC
 
 Single-producer single-consumer lock-free queue.
 
 **Usage:**
 
 ```cpp
-#include <qbuf/spsc_queue.hpp>
+#include <qbuf/spsc.hpp>
 
-qbuf::SPSCQueue<int, 256> queue;
+qbuf::SPSC<int, 256> queue;
 
 // Non-blocking single element operations
 if (queue.try_enqueue(42)) {

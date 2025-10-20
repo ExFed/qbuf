@@ -19,13 +19,13 @@ namespace qbuf {
  * @tparam Capacity Maximum number of elements the queue can hold
  */
 template <typename T, std::size_t Capacity>
-class SPSCQueue {
+class SPSC {
 public:
     static_assert(Capacity > 0, "Queue capacity must be greater than 0");
     static_assert((Capacity & (Capacity - 1)) == 0,
                   "Queue capacity must be a power of 2");
 
-    SPSCQueue() : head_(0), tail_(0) {}
+    SPSC() : head_(0), tail_(0) {}
 
     /**
      * @brief Try to enqueue a single element
