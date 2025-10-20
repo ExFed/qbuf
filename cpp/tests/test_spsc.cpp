@@ -36,9 +36,15 @@ void test_basic_operations() {
     assert(queue.try_enqueue(3));
     assert(queue.size() == 3);
 
-    assert(queue.try_dequeue().value() == 1);
-    assert(queue.try_dequeue().value() == 2);
-    assert(queue.try_dequeue().value() == 3);
+    auto val1 = queue.try_dequeue();
+    assert(val1.has_value());
+    assert(val1.value() == 1);
+    auto val2 = queue.try_dequeue();
+    assert(val2.has_value());
+    assert(val2.value() == 2);
+    auto val3 = queue.try_dequeue();
+    assert(val3.has_value());
+    assert(val3.value() == 3);
     assert(queue.empty());
 
     std::cout << "  PASSED: basic operations" << std::endl;
@@ -102,9 +108,15 @@ void test_move_semantics() {
     assert(queue.try_enqueue("Second"));
     assert(queue.try_enqueue("Third"));
 
-    assert(queue.try_dequeue().value() == "First");
-    assert(queue.try_dequeue().value() == "Second");
-    assert(queue.try_dequeue().value() == "Third");
+    auto val1 = queue.try_dequeue();
+    assert(val1.has_value());
+    assert(val1.value() == "First");
+    auto val2 = queue.try_dequeue();
+    assert(val2.has_value());
+    assert(val2.value() == "Second");
+    auto val3 = queue.try_dequeue();
+    assert(val3.has_value());
+    assert(val3.value() == "Third");
 
     std::cout << "  PASSED: move semantics" << std::endl;
 }
