@@ -15,5 +15,5 @@
   (synopsis "Thread-safe buffers and queues in C++")
   (description
    "Research implementation of thread-safe buffers and queues using modern C++.")
-  (home-page "https://example.com/qbuf")
+  (home-page "https://github.com/ExFed/qbuf")
   (license license:unlicense))

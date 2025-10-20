@@ -1,11 +1,7 @@
 # TODO
 
 - [x] test for use-after-free behavior
-- [ ] move SPSC tests to dedicated source `test_spsc.cpp`
-- [ ] add formatting rules for `clang-format`
-  - determine major style closest to current style
-- [ ] broaden project to host generic utilities
-  - determine name?
-    - dbutil
-    - autil
-    - quill
+- [x] move SPSC tests to dedicated source `test_spsc.cpp`
+- [x] add to SPSC a producer handle exposing only enqueue and util operations
+  consumer handle exposing only dequeue and util operations
+- [x] add formatting rules for `clang-format`

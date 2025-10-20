@@ -77,6 +77,41 @@ if (queue.enqueue(batch.data(), batch.size(), 1s)) {  // Blocks up to 1 second
 }
 ```
 
+## Producer and Consumer Handles
+
+For type-safe producer-consumer patterns, use `ProducerHandle` and `ConsumerHandle` to expose only the appropriate operations for each role:
+
+```cpp
+#include <qbuf/spsc.hpp>
+
+qbuf::SPSC<int, 256> queue;
+
+// Create handles from the same queue
+qbuf::ProducerHandle<int, 256> producer(queue);
+qbuf::ConsumerHandle<int, 256> consumer(queue);
+
+// Producer can only enqueue
+producer.try_enqueue(42);
+producer.enqueue(43, std::chrono::seconds(1));
+std::cout << "Queue size: " << producer.size() << std::endl;
+
+// Consumer can only dequeue
+auto value = consumer.try_dequeue();
+auto value2 = consumer.dequeue(std::chrono::seconds(1));
+std::cout << "Queue empty: " << consumer.empty() << std::endl;
+
+// Compile error - type checking prevents misuse:
+// producer.try_dequeue();  // Error: ConsumerHandle has no such method
+// consumer.try_enqueue(42);  // Error: ProducerHandle has no such method
+```
+
+**Features:**
+
+- **Type-Safe Role Separation**: Compile-time prevention of producer calling dequeue or consumer calling enqueue
+- **Zero Overhead**: Handles are thin wrappers; no runtime cost
+- **Full Feature Parity**: Both handles support single-element and bulk operations with blocking/non-blocking variants
+- **Shared Queue**: Handles reference the same underlying SPSC queue for efficient data passing
+
 **Features:**
 
 - Lock-free atomic operations
