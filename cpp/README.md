@@ -1,6 +1,6 @@
 # C++ Thread-Safe Buffers and Queues
 
-Header-only C++17 implementations of lock-free thread-safe buffers and queues.
+Header-only C++23 implementations of lock-free thread-safe buffers and queues.
 
 ## Quick Build
 
@@ -19,7 +19,7 @@ guix shell -m manifest.scm -- sh -c 'cd build && cmake .. && make && ctest'
 
 ## Features
 
-- **C++17**: Modern C++ with `std::optional`, structured bindings
+- **C++23**: Modern C++ with `std::optional`, structured bindings
 - **Lock-free**: SPSC queue using atomic operations
 - **Header-only**: Easy integration, no build required
 

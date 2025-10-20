@@ -13,7 +13,7 @@ namespace qbuf {
  * @brief Single-Producer Single-Consumer lock-free queue
  *
  * A thread-safe, lock-free queue implementation for single producer and
- * single consumer scenarios using C++17 features.
+ * single consumer scenarios using C++23 features.
  *
  * @tparam T The type of elements stored in the queue
  * @tparam Capacity Maximum number of elements the queue can hold
