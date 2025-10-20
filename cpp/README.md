@@ -44,7 +44,7 @@ Single-producer single-consumer lock-free queue.
 
 qbuf::SPSCQueue<int, 256> queue;
 
-// Non-blocking operations (try_* methods)
+// Non-blocking single element operations
 if (queue.try_enqueue(42)) {
     auto value = queue.try_dequeue();
     if (value) {
@@ -52,22 +52,22 @@ if (queue.try_enqueue(42)) {
     }
 }
 
-// Blocking operations (enqueue/dequeue methods)
+// Blocking single element operations
 queue.enqueue(42);  // Blocks until successful
 int value = queue.dequeue();  // Blocks until element available
 std::cout << value << std::endl;
 
+// Non-blocking bulk operations (partial results OK, returns count)
+std::vector<int> batch(100);
+std::size_t enqueued = queue.try_enqueue(batch.data(), batch.size());
+std::vector<int> output(100);
+std::size_t dequeued = queue.try_dequeue(output.data(), 100);
+
 // Blocking bulk operations (entire batch guaranteed)
 std::vector<int> batch(100);
-queue.enqueue_bulk(batch.data(), batch.size());  // Blocks until all enqueued
+queue.enqueue(batch.data(), batch.size());  // Blocks until all enqueued
 std::vector<int> output(100);
-queue.dequeue_bulk(output.data(), 100);  // Blocks until all dequeued
-
-// Non-blocking bulk operations (partial results OK)
-std::vector<int> batch(100);
-std::size_t enqueued = queue.try_enqueue_bulk(batch.data(), batch.size());
-std::vector<int> output(100);
-std::size_t dequeued = queue.try_dequeue_bulk(output.data(), 100);
+queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 ```
 
 **Features:**
@@ -83,16 +83,30 @@ std::size_t dequeued = queue.try_dequeue_bulk(output.data(), 100);
 
 ## API Overview
 
+### Single Element Operations
+
 | Method | Type | Returns | Behavior |
 |:---|:---|:---|:---|
 | `try_enqueue(value)` | Non-blocking | `bool` | Returns immediately, false if full |
+| `try_enqueue(T&&)` | Non-blocking | `bool` | Returns immediately, false if full (move) |
 | `try_dequeue()` | Non-blocking | `std::optional<T>` | Returns immediately, nullopt if empty |
 | `enqueue(value)` | Blocking | `void` | Blocks until enqueued |
+| `enqueue(T&&)` | Blocking | `void` | Blocks until enqueued (move) |
 | `dequeue()` | Blocking | `T` | Blocks until element available |
-| `try_enqueue_bulk(ptr, count)` | Non-blocking | `std::size_t` | Enqueues up to `count` elements |
-| `try_dequeue_bulk(ptr, count)` | Non-blocking | `std::size_t` | Dequeues up to `count` elements |
-| `enqueue_bulk(ptr, count)` | Blocking | `void` | Blocks until all `count` elements enqueued |
-| `dequeue_bulk(ptr, count)` | Blocking | `void` | Blocks until all `count` elements dequeued |
+
+### Bulk Operations
+
+| Method | Type | Returns | Behavior |
+|:---|:---|:---|:---|
+| `try_enqueue(ptr, count)` | Non-blocking | `std::size_t` | Enqueues up to `count` elements, returns count enqueued |
+| `try_dequeue(ptr, count)` | Non-blocking | `std::size_t` | Dequeues up to `count` elements, returns count dequeued |
+| `enqueue(ptr, count)` | Blocking | `void` | Blocks until all `count` elements enqueued |
+| `dequeue(ptr, count)` | Blocking | `void` | Blocks until all `count` elements dequeued |
+
+### Utility Methods
+
+| Method | Type | Returns | Behavior |
+|:---|:---|:---|:---|
 | `empty()` | Non-blocking | `bool` | Approximate check |
 | `size()` | Non-blocking | `std::size_t` | Approximate size |
 
