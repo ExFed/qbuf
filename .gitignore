@@ -1,1 +1,8 @@
-build
+# Build directories
+build/
+
+# IDE & temp files
+.vscode/
+.idea/
+*.swp
+*~

@@ -15,12 +15,6 @@ cmake_install.cmake
 *.dylib
 test_runner
 
-# IDE & temp files
-.vscode/
-.idea/
-*.swp
-*~
-
 # Guix
 .guix-*
 result

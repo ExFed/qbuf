@@ -20,3 +20,8 @@ enable_testing()
 add_executable(test_runner tests/test_main.cpp)
 target_link_libraries(test_runner PRIVATE ringbuf)
 add_test(NAME tests COMMAND test_runner)
+
+# Benchmark
+add_executable(benchmark src/benchmark.cpp)
+target_link_libraries(benchmark PRIVATE ringbuf)
+target_compile_options(benchmark PRIVATE -O3)

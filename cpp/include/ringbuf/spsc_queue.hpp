@@ -101,6 +101,138 @@ public:
         return (tail >= head) ? (tail - head) : (Capacity - head + tail);
     }
 
+    /**
+     * @brief Try to enqueue multiple elements efficiently
+     *
+     * Enqueues up to `count` elements from the input array. Returns the number
+     * of elements actually enqueued. Optimized to avoid modulo in hot loop.
+     *
+     * @param data Pointer to array of elements to enqueue
+     * @param count Number of elements to enqueue
+     * @return Number of elements successfully enqueued
+     */
+    std::size_t try_enqueue_bulk(const T* data, std::size_t count) {
+        if (count == 0) return 0;
+
+        const auto current_tail = tail_.load(std::memory_order_relaxed);
+        const auto current_head = head_.load(std::memory_order_acquire);
+
+        // Calculate available space
+        std::size_t available;
+        if (current_tail >= current_head) {
+            available = (Capacity - 1) - (current_tail - current_head);
+        } else {
+            available = current_head - current_tail - 1;
+        }
+
+        // Limit enqueue to available space
+        std::size_t to_enqueue = (count < available) ? count : available;
+
+        if (to_enqueue == 0) return 0;
+
+        std::size_t enqueued_total = 0;
+        std::size_t src_idx = 0;
+        std::size_t tail_idx = current_tail;
+
+        // First segment: write until end of buffer or until head
+        std::size_t first_seg_size;
+        if (current_tail >= current_head) {
+            // Normal case: write from tail to end of buffer
+            first_seg_size = std::min(to_enqueue, Capacity - tail_idx);
+        } else {
+            // Wrap case: write from tail up to (but not past) head
+            first_seg_size = std::min(to_enqueue, current_head - tail_idx - 1);
+        }
+
+        for (std::size_t i = 0; i < first_seg_size; ++i) {
+            buffer_[tail_idx + i] = data[src_idx + i];
+        }
+        enqueued_total = first_seg_size;
+        tail_idx = (tail_idx + first_seg_size) & (Capacity - 1);
+        to_enqueue -= first_seg_size;
+        src_idx += first_seg_size;
+
+        // Second segment: if we wrapped and still have elements to enqueue
+        if (to_enqueue > 0) {
+            std::size_t second_seg_size = std::min(to_enqueue, current_head - 1);
+            for (std::size_t i = 0; i < second_seg_size; ++i) {
+                buffer_[i] = data[src_idx + i];
+            }
+            enqueued_total += second_seg_size;
+            tail_idx = second_seg_size;
+        }
+
+        tail_.store(tail_idx, std::memory_order_release);
+        return enqueued_total;
+    }
+
+    /**
+     * @brief Try to dequeue multiple elements efficiently
+     *
+     * Dequeues up to `count` elements into the output array. Returns the number
+     * of elements actually dequeued. Optimized to avoid modulo in hot loop.
+     *
+     * @param data Pointer to output array
+     * @param count Maximum number of elements to dequeue
+     * @return Number of elements successfully dequeued
+     */
+    std::size_t try_dequeue_bulk(T* data, std::size_t count) {
+        if (count == 0) return 0;
+
+        const auto current_head = head_.load(std::memory_order_relaxed);
+        const auto current_tail = tail_.load(std::memory_order_acquire);
+
+        // Calculate available elements
+        std::size_t available;
+        if (current_tail >= current_head) {
+            available = current_tail - current_head;
+        } else {
+            available = Capacity - current_head + current_tail;
+        }
+
+        // Limit dequeue to available elements
+        std::size_t to_dequeue = (count < available) ? count : available;
+
+        if (to_dequeue == 0) return 0;
+
+        std::size_t head_idx = current_head;
+        std::size_t dequeued = 0;
+
+        // First segment: from current_head to end of buffer (or wrap point)
+        if (current_tail >= current_head) {
+            // Normal case: elements are contiguous from head to tail
+            std::size_t first_segment = std::min(to_dequeue, current_tail - head_idx);
+            for (std::size_t i = 0; i < first_segment; ++i) {
+                data[i] = std::move(buffer_[head_idx + i]);
+            }
+            head_idx += first_segment;
+            dequeued = first_segment;
+            to_dequeue -= first_segment;
+        } else {
+            // Wrap case: elements go from head to end, then from start to tail
+            std::size_t first_segment = std::min(to_dequeue, Capacity - head_idx);
+            for (std::size_t i = 0; i < first_segment; ++i) {
+                data[i] = std::move(buffer_[head_idx + i]);
+            }
+            head_idx = (head_idx + first_segment) & (Capacity - 1);
+            dequeued = first_segment;
+            to_dequeue -= first_segment;
+        }
+
+        // Second segment: if we wrapped and still need elements
+        if (to_dequeue > 0 && head_idx == 0) {
+            std::size_t second_segment = std::min(to_dequeue, current_tail);
+            for (std::size_t i = 0; i < second_segment; ++i) {
+                data[dequeued + i] = std::move(buffer_[i]);
+            }
+            head_idx = second_segment;
+            dequeued += second_segment;
+        }
+
+        head_.store(head_idx, std::memory_order_release);
+        return dequeued;
+    }
+
 private:
     static constexpr std::size_t increment(std::size_t idx) {
         return (idx + 1) & (Capacity - 1);

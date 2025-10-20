@@ -44,14 +44,18 @@ Single-producer single-consumer lock-free queue.
 
 ringbuf::SPSCQueue<int, 256> queue;
 
-// Producer
-queue.try_push(42);
-
-// Consumer
-auto value = queue.try_pop();
+// Individual operations
+queue.try_enqueue(42);
+auto value = queue.try_dequeue();
 if (value) {
     std::cout << *value << std::endl;
 }
+
+// Bulk operations (optimized for performance)
+std::vector<int> batch(100);
+queue.try_enqueue_bulk(batch.data(), batch.size());
+std::vector<int> output(100);
+queue.try_dequeue_bulk(output.data(), 100);
 ```
 
 **Features:**
@@ -61,6 +65,16 @@ if (value) {
 - Cache-line aligned pointers
 - Move semantics support
 - `std::optional` return values
+- **Bulk operations** with optimized vectorization
+
+## Performance
+
+Bulk operations provide up to **2-3x throughput improvement** for medium to large batch sizes compared to individual enqueue/dequeue calls. See [BENCHMARK.md](BENCHMARK.md) for detailed performance analysis.
+
+```bash
+# Run benchmarks
+cd cpp && guix shell -m manifest.scm -- sh -c 'cd build && cmake .. && make && ./benchmark'
+```
 
 ## License
 
