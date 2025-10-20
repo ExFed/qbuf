@@ -4,6 +4,8 @@
 #include <array>
 #include <optional>
 #include <cstddef>
+#include <thread>
+#include <chrono>
 
 namespace ringbuf {
 
@@ -231,6 +233,102 @@ public:
 
         head_.store(head_idx, std::memory_order_release);
         return dequeued;
+    }
+
+    /**
+     * @brief Block until an element can be enqueued
+     *
+     * Blocks the calling thread until the element is successfully enqueued.
+     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     *
+     * @param value The value to enqueue
+     */
+    void enqueue(const T& value) {
+        while (!try_enqueue(value)) {
+            std::this_thread::yield();
+        }
+    }
+
+    /**
+     * @brief Block until an element can be enqueued (move semantics)
+     *
+     * Blocks the calling thread until the element is successfully enqueued.
+     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     *
+     * @param value The value to enqueue (will be moved)
+     */
+    void enqueue(T&& value) {
+        while (!try_enqueue(std::move(value))) {
+            std::this_thread::yield();
+        }
+    }
+
+    /**
+     * @brief Block until an element can be dequeued
+     *
+     * Blocks the calling thread until an element is successfully dequeued.
+     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     *
+     * @return The dequeued element
+     */
+    T dequeue() {
+        while (true) {
+            auto value = try_dequeue();
+            if (value.has_value()) {
+                return std::move(value.value());
+            }
+            std::this_thread::yield();
+        }
+    }
+
+    /**
+     * @brief Block until all elements are enqueued
+     *
+     * Blocks until all `count` elements from the input array are successfully enqueued.
+     * Returns only when the entire batch has been queued. Enqueues in segments to handle
+     * wrap-around efficiently.
+     *
+     * @param data Pointer to array of elements to enqueue
+     * @param count Number of elements to enqueue
+     */
+    void enqueue_bulk(const T* data, std::size_t count) {
+        if (count == 0) return;
+
+        std::size_t total_enqueued = 0;
+        while (total_enqueued < count) {
+            std::size_t enqueued = try_enqueue_bulk(data + total_enqueued,
+                                                     count - total_enqueued);
+            total_enqueued += enqueued;
+
+            if (total_enqueued < count) {
+                std::this_thread::yield();
+            }
+        }
+    }
+
+    /**
+     * @brief Block until all elements are dequeued
+     *
+     * Blocks until all `count` elements are successfully dequeued into the output array.
+     * Returns only when the entire batch has been dequeued. Reads in segments to handle
+     * wrap-around efficiently.
+     *
+     * @param data Pointer to output array
+     * @param count Number of elements to dequeue
+     */
+    void dequeue_bulk(T* data, std::size_t count) {
+        if (count == 0) return;
+
+        std::size_t total_dequeued = 0;
+        while (total_dequeued < count) {
+            std::size_t dequeued = try_dequeue_bulk(data + total_dequeued,
+                                                     count - total_dequeued);
+            total_dequeued += dequeued;
+
+            if (total_dequeued < count) {
+                std::this_thread::yield();
+            }
+        }
     }
 
 private:

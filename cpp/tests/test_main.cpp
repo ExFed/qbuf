@@ -64,6 +64,7 @@ void test_fifo_ordering() {
     SPSCQueue<int, 8> queue;
 
     std::vector<int> input = {10, 20, 30, 40, 50};
+    std::vector<int> output;
 
     for (int val : input) {
         assert(queue.try_enqueue(val));
@@ -73,6 +74,13 @@ void test_fifo_ordering() {
         auto value = queue.try_dequeue();
         assert(value.has_value());
         assert(value.value() == expected);
+        output.push_back(value.value());
+    }
+
+    // Verify inputs produced match outputs consumed in same order
+    assert(input.size() == output.size());
+    for (std::size_t i = 0; i < input.size(); ++i) {
+        assert(input[i] == output[i]);
     }
 
     std::cout << "  PASSED: FIFO ordering" << std::endl;
@@ -165,9 +173,14 @@ void test_bulk_enqueue_dequeue() {
     assert(dequeued == input.size());
     assert(queue.empty());
 
-    // Verify order
+    // Verify inputs produced match outputs consumed in same order
+    assert(input.size() == output.size());
     for (std::size_t i = 0; i < input.size(); ++i) {
         assert(output[i] == input[i]);
+    }
+    // Verify each element individually
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        assert(output.at(i) == input.at(i));
     }
 
     std::cout << "  PASSED: bulk enqueue/dequeue" << std::endl;
@@ -178,6 +191,7 @@ void test_bulk_partial() {
     SPSCQueue<int, 16> queue;
 
     std::vector<int> input = {1, 2, 3, 4, 5, 6, 7, 8};
+    std::vector<int> consumed_output;
 
     // Enqueue first batch
     std::size_t enqueued1 = queue.try_enqueue_bulk(input.data(), 4);
@@ -189,6 +203,9 @@ void test_bulk_partial() {
     assert(dequeued1 == 2);
     assert(output1[0] == 1);
     assert(output1[1] == 2);
+    assert(output1[0] == input[0]);
+    assert(output1[1] == input[1]);
+    consumed_output.insert(consumed_output.end(), output1.begin(), output1.end());
 
     // Enqueue more
     std::size_t enqueued2 = queue.try_enqueue_bulk(&input[4], 4);
@@ -198,7 +215,12 @@ void test_bulk_partial() {
     std::vector<int> output2(6);
     std::size_t dequeued2 = queue.try_dequeue_bulk(output2.data(), 6);
     assert(dequeued2 == 6);
+    consumed_output.insert(consumed_output.end(), output2.begin(), output2.begin() + 6);
 
+    // Verify all consumed elements match original input order
+    for (std::size_t i = 0; i < consumed_output.size(); ++i) {
+        assert(consumed_output[i] == input[i]);
+    }
     // Verify
     for (int i = 0; i < 6; ++i) {
         assert(output2[i] == (3 + i));
@@ -249,6 +271,7 @@ void test_bulk_wrap_around() {
     std::vector<int> batch2 = {5, 6};
     std::vector<int> batch3 = {7, 8, 9, 10};
     std::vector<int> output(10);
+    std::vector<int> expected_order = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     // Enqueue first batch
     std::size_t e1 = queue.try_enqueue_bulk(batch1.data(), batch1.size());
@@ -258,6 +281,7 @@ void test_bulk_wrap_around() {
     std::size_t d1 = queue.try_dequeue_bulk(output.data(), 2);
     assert(d1 == 2);
     assert(output[0] == 1 && output[1] == 2);
+    assert(output[0] == batch1[0] && output[1] == batch1[1]);
 
     // Enqueue more
     std::size_t e2 = queue.try_enqueue_bulk(batch2.data(), batch2.size());
@@ -282,6 +306,13 @@ void test_bulk_wrap_around() {
         assert(final_output[i] == expected[i]);
     }
 
+    // Verify full consumption matches expected order
+    assert(expected_order[0] == output[0]);
+    assert(expected_order[1] == output[1]);
+    for (int i = 0; i < 7; ++i) {
+        assert(expected_order[2 + i] == final_output[i]);
+    }
+
     std::cout << "  PASSED: bulk operations with wrap-around" << std::endl;
 }
 
@@ -298,8 +329,11 @@ void test_bulk_with_strings() {
     std::size_t dequeued = queue.try_dequeue_bulk(output.data(), output.size());
     assert(dequeued == input.size());
 
+    // Verify inputs produced match outputs consumed in same order
+    assert(input.size() == output.size());
     for (std::size_t i = 0; i < input.size(); ++i) {
         assert(output[i] == input[i]);
+        assert(output.at(i) == input.at(i));
     }
 
     std::cout << "  PASSED: bulk operations with strings" << std::endl;
@@ -363,6 +397,382 @@ void test_bulk_concurrent() {
     std::cout << "  PASSED: concurrent bulk operations" << std::endl;
 }
 
+void test_blocking_enqueue() {
+    std::cout << "Testing blocking enqueue..." << std::endl;
+    SPSCQueue<int, 8> queue;
+
+    // Fill the queue to near capacity (7 elements max)
+    for (int i = 0; i < 7; ++i) {
+        queue.enqueue(i);
+    }
+    assert(queue.size() == 7);
+
+    // Producer thread tries to enqueue (will block until consumer makes space)
+    std::atomic<bool> producer_done{false};
+    std::thread producer([&queue, &producer_done]() {
+        queue.enqueue(99); // Will block until space available
+        producer_done.store(true, std::memory_order_release);
+    });
+
+    // Give producer time to block
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Consumer dequeues one element, unblocking the producer
+    auto value = queue.try_dequeue();
+    assert(value.has_value());
+    assert(value.value() == 0);
+
+    // Wait for producer to complete
+    producer.join();
+    assert(producer_done.load());
+    assert(queue.size() == 7); // Should have 1-6 and 99
+
+    std::cout << "  PASSED: blocking enqueue" << std::endl;
+}
+
+void test_blocking_dequeue() {
+    std::cout << "Testing blocking dequeue..." << std::endl;
+    SPSCQueue<int, 16> queue;
+
+    std::atomic<int> dequeued_value{-1};
+    std::atomic<bool> consumer_done{false};
+
+    // Consumer thread tries to dequeue from empty queue (will block)
+    std::thread consumer([&queue, &dequeued_value, &consumer_done]() {
+        dequeued_value.store(queue.dequeue(), std::memory_order_release);
+        consumer_done.store(true, std::memory_order_release);
+    });
+
+    // Give consumer time to block
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    assert(!consumer_done.load()); // Consumer should still be blocked
+
+    // Producer enqueues an element, unblocking consumer
+    queue.enqueue(42);
+
+    // Wait for consumer to complete
+    consumer.join();
+    assert(consumer_done.load());
+    assert(dequeued_value.load() == 42);
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking dequeue" << std::endl;
+}
+
+void test_blocking_concurrent() {
+    std::cout << "Testing blocking concurrent operations..." << std::endl;
+    SPSCQueue<int, 256> queue;
+    constexpr int num_elements = 1000;
+
+    // Producer thread
+    std::thread producer([&queue]() {
+        for (int i = 0; i < num_elements; ++i) {
+            queue.enqueue(i);
+        }
+    });
+
+    // Consumer thread
+    std::vector<int> consumed;
+    std::thread consumer([&queue, &consumed]() {
+        for (int i = 0; i < num_elements; ++i) {
+            consumed.push_back(queue.dequeue());
+        }
+    });
+
+    producer.join();
+    consumer.join();
+
+    // Verify all elements were consumed in order
+    assert(consumed.size() == num_elements);
+    for (int i = 0; i < num_elements; ++i) {
+        assert(consumed[i] == i);
+    }
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking concurrent operations" << std::endl;
+}
+
+void test_blocking_with_strings() {
+    std::cout << "Testing blocking operations with strings..." << std::endl;
+    SPSCQueue<std::string, 16> queue;
+
+    std::string result;
+    std::atomic<bool> done{false};
+
+    // Consumer thread dequeues (will block initially)
+    std::thread consumer([&queue, &result, &done]() {
+        result = queue.dequeue();
+        done.store(true, std::memory_order_release);
+    });
+
+    // Give consumer time to block
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Producer enqueues
+    queue.enqueue(std::string("Hello, World!"));
+
+    consumer.join();
+    assert(done.load());
+    assert(result == "Hello, World!");
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking operations with strings" << std::endl;
+}
+
+void test_blocking_stress() {
+    std::cout << "Testing blocking operations under stress..." << std::endl;
+    SPSCQueue<int, 64> queue;
+    constexpr int total_ops = 10000;
+    std::atomic<int> consumed_count{0};
+
+    // Producer: continuously enqueue
+    std::thread producer([&queue]() {
+        for (int i = 0; i < total_ops; ++i) {
+            queue.enqueue(i);
+        }
+    });
+
+    // Consumer: continuously dequeue
+    std::thread consumer([&queue, &consumed_count]() {
+        for (int i = 0; i < total_ops; ++i) {
+            int value = queue.dequeue();
+            assert(value == i);
+            consumed_count.fetch_add(1, std::memory_order_release);
+        }
+    });
+
+    producer.join();
+    consumer.join();
+
+    assert(consumed_count.load() == total_ops);
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking stress test" << std::endl;
+}
+
+void test_blocking_bulk_enqueue() {
+    std::cout << "Testing blocking bulk enqueue..." << std::endl;
+    SPSCQueue<int, 16> queue;
+
+    // Fill most of the queue
+    std::vector<int> initial_batch = {1, 2, 3, 4, 5, 6, 7};
+    queue.enqueue_bulk(initial_batch.data(), initial_batch.size());
+    assert(queue.size() == 7);
+
+    // Try to enqueue a large batch (will block until consumer drains)
+    std::vector<int> large_batch(20);
+    for (int i = 0; i < 20; ++i) {
+        large_batch[i] = 100 + i;
+    }
+
+    std::atomic<bool> producer_done{false};
+    std::thread producer([&queue, &large_batch, &producer_done]() {
+        queue.enqueue_bulk(large_batch.data(), large_batch.size());
+        producer_done.store(true, std::memory_order_release);
+    });
+
+    // Give producer time to block
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    assert(!producer_done.load()); // Should still be blocked
+
+    // Consumer drains the queue gradually
+    std::vector<int> consumed;
+    int total_to_drain = 27;  // 7 initial + 20 large_batch
+    while (consumed.size() < total_to_drain) {
+        auto value = queue.try_dequeue();
+        if (value.has_value()) {
+            consumed.push_back(value.value());
+        } else {
+            std::this_thread::yield();
+        }
+    }
+
+    producer.join();
+    assert(producer_done.load());
+
+    // Verify all elements
+    assert(consumed.size() == 27);
+    for (int i = 0; i < 7; ++i) {
+        assert(consumed[i] == i + 1);
+    }
+    for (int i = 0; i < 20; ++i) {
+        assert(consumed[7 + i] == 100 + i);
+    }
+
+    std::cout << "  PASSED: blocking bulk enqueue" << std::endl;
+}
+
+void test_blocking_bulk_dequeue() {
+    std::cout << "Testing blocking bulk dequeue..." << std::endl;
+    SPSCQueue<int, 128> queue;
+
+    std::vector<int> output(50);
+    std::atomic<bool> consumer_done{false};
+
+    // Consumer thread tries to dequeue 50 elements (will block)
+    std::thread consumer([&queue, &output, &consumer_done]() {
+        queue.dequeue_bulk(output.data(), 50);
+        consumer_done.store(true, std::memory_order_release);
+    });
+
+    // Give consumer time to block
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    assert(!consumer_done.load()); // Should be blocked
+
+    // Producer enqueues all 50 elements in batches
+    std::vector<int> batch1(25);
+    std::vector<int> batch2(25);
+    for (int i = 0; i < 25; ++i) {
+        batch1[i] = i;
+        batch2[i] = 25 + i;
+    }
+
+    queue.enqueue_bulk(batch1.data(), 25);
+    queue.enqueue_bulk(batch2.data(), 25);
+
+    // Wait for consumer to complete
+    consumer.join();
+    assert(consumer_done.load());
+
+    // Verify all elements
+    for (int i = 0; i < 50; ++i) {
+        assert(output[i] == i);
+    }
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking bulk dequeue" << std::endl;
+}
+
+void test_blocking_bulk_concurrent() {
+    std::cout << "Testing blocking bulk concurrent operations..." << std::endl;
+    SPSCQueue<int, 256> queue;
+    constexpr int num_batches = 100;
+    constexpr int batch_size = 50;
+    constexpr int total_elements = num_batches * batch_size;
+
+    // Producer: enqueue in batches using blocking API
+    std::thread producer([&queue]() {
+        for (int b = 0; b < num_batches; ++b) {
+            std::vector<int> batch(batch_size);
+            for (int i = 0; i < batch_size; ++i) {
+                batch[i] = b * batch_size + i;
+            }
+            queue.enqueue_bulk(batch.data(), batch_size);
+        }
+    });
+
+    // Consumer: dequeue in batches using blocking API
+    std::vector<int> consumed;
+    std::thread consumer([&queue, &consumed, total_elements]() {
+        std::vector<int> batch(batch_size);
+        int total_dequeued = 0;
+        while (total_dequeued < total_elements) {
+            int remaining = total_elements - total_dequeued;
+            int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
+            queue.dequeue_bulk(batch.data(), to_dequeue);
+            for (int i = 0; i < to_dequeue; ++i) {
+                consumed.push_back(batch[i]);
+            }
+            total_dequeued += to_dequeue;
+        }
+    });
+
+    producer.join();
+    consumer.join();
+
+    // Verify
+    assert(consumed.size() == total_elements);
+    for (int i = 0; i < total_elements; ++i) {
+        assert(consumed[i] == i);
+    }
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking bulk concurrent operations" << std::endl;
+}
+
+void test_blocking_bulk_mixed() {
+    std::cout << "Testing mixed blocking and non-blocking bulk operations..." << std::endl;
+    SPSCQueue<int, 64> queue;
+
+    std::vector<int> input1(10);
+    for (int i = 0; i < 10; ++i) input1[i] = i;
+
+    std::vector<int> input2(8);
+    for (int i = 0; i < 8; ++i) input2[i] = 100 + i;
+
+    // Enqueue with blocking bulk
+    queue.enqueue_bulk(input1.data(), input1.size());
+    assert(queue.size() == 10);
+
+    // Dequeue with non-blocking try_dequeue_bulk
+    std::vector<int> output1(5);
+    std::size_t dequeued = queue.try_dequeue_bulk(output1.data(), 5);
+    assert(dequeued == 5);
+    assert(queue.size() == 5);
+
+    // Verify first dequeue matches first half of input1
+    for (int i = 0; i < 5; ++i) {
+        assert(output1[i] == input1[i]);
+    }
+
+    // Enqueue more with try_enqueue_bulk
+    std::size_t enqueued = queue.try_enqueue_bulk(input2.data(), 8);
+    assert(enqueued == 8);
+    assert(queue.size() == 13);
+
+    // Dequeue all remaining with blocking bulk
+    std::vector<int> output2(13);
+    queue.dequeue_bulk(output2.data(), 13);
+    assert(queue.empty());
+
+    // Verify sequence - outputs match inputs in order
+    int idx = 0;
+    for (int i = 5; i < 10; ++i) {
+        assert(output2[idx] == input1[i]);
+        assert(output2[idx++] == i);
+    }
+    for (int i = 0; i < 8; ++i) {
+        assert(output2[idx] == input2[i]);
+        assert(output2[idx++] == 100 + i);
+    }
+
+    std::cout << "  PASSED: mixed blocking and non-blocking bulk operations" << std::endl;
+}
+
+void test_blocking_bulk_with_strings() {
+    std::cout << "Testing blocking bulk with strings..." << std::endl;
+    SPSCQueue<std::string, 32> queue;
+
+    std::vector<std::string> input = {
+        "hello", "world", "blocking", "bulk", "operations",
+        "are", "now", "fully", "implemented", "and", "tested"
+    };
+    std::vector<std::string> output(input.size());
+
+    // Producer: enqueue all with blocking bulk
+    std::thread producer([&queue, &input]() {
+        queue.enqueue_bulk(input.data(), input.size());
+    });
+
+    // Consumer: dequeue all with blocking bulk
+    std::thread consumer([&queue, &output]() {
+        queue.dequeue_bulk(output.data(), output.size());
+    });
+
+    producer.join();
+    consumer.join();
+
+    // Verify inputs produced match outputs consumed in same order
+    assert(output.size() == input.size());
+    for (std::size_t i = 0; i < input.size(); ++i) {
+        assert(output[i] == input[i]);
+        assert(output.at(i) == input.at(i));
+    }
+    assert(queue.empty());
+
+    std::cout << "  PASSED: blocking bulk with strings" << std::endl;
+}
+
 int main() {
     std::cout << "\n=== Running SPSCQueue Tests ===" << std::endl;
     try {
@@ -378,6 +788,16 @@ int main() {
         test_bulk_wrap_around();
         test_bulk_with_strings();
         test_bulk_concurrent();
+        test_blocking_enqueue();
+        test_blocking_dequeue();
+        test_blocking_concurrent();
+        test_blocking_with_strings();
+        test_blocking_stress();
+        test_blocking_bulk_enqueue();
+        test_blocking_bulk_dequeue();
+        test_blocking_bulk_concurrent();
+        test_blocking_bulk_mixed();
+        test_blocking_bulk_with_strings();
 
         std::cout << "\n=== All tests passed! ===" << std::endl;
         return 0;
