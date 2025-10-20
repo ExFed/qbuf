@@ -26,7 +26,7 @@ guix shell -m manifest.scm -- sh -c 'cd build && cmake .. && make && ctest'
 ## Project Structure
 
 ```
-include/ringbuf/spsc_queue.hpp  - SPSC queue implementation
+include/qbuf/spsc_queue.hpp  - SPSC queue implementation
 tests/test_main.cpp              - Tests
 CMakeLists.txt                   - Simple CMake config
 guix.scm                         - Guix package definition
@@ -40,9 +40,9 @@ Single-producer single-consumer lock-free queue.
 **Usage:**
 
 ```cpp
-#include <ringbuf/spsc_queue.hpp>
+#include <qbuf/spsc_queue.hpp>
 
-ringbuf::SPSCQueue<int, 256> queue;
+qbuf::SPSCQueue<int, 256> queue;
 
 // Non-blocking operations (try_* methods)
 if (queue.try_enqueue(42)) {

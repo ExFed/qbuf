@@ -1,11 +1,11 @@
-#include <ringbuf/spsc_queue.hpp>
+#include <qbuf/spsc_queue.hpp>
 #include <iostream>
 #include <vector>
 #include <chrono>
 #include <thread>
 #include <iomanip>
 
-using namespace ringbuf;
+using namespace qbuf;
 
 // Simple timer class
 class Timer {

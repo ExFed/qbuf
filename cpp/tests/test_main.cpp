@@ -4,9 +4,9 @@
 #include <vector>
 #include <string>
 #include <atomic>
-#include <ringbuf/spsc_queue.hpp>
+#include <qbuf/spsc_queue.hpp>
 
-using namespace ringbuf;
+using namespace qbuf;
 
 void test_basic_operations() {
     std::cout << "Testing basic operations..." << std::endl;

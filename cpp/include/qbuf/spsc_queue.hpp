@@ -7,7 +7,7 @@
 #include <thread>
 #include <chrono>
 
-namespace ringbuf {
+namespace qbuf {
 
 /**
  * @brief Single-Producer Single-Consumer lock-free queue
@@ -332,4 +332,4 @@ private:
     std::array<T, Capacity> buffer_;
 };
 
-} // namespace ringbuf
+} // namespace qbuf

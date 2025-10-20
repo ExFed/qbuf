@@ -1,4 +1,4 @@
-# RingBuf
+# QBuf
 
 This project is intended to research thread-safe buffers and queues for different
 programming languages.

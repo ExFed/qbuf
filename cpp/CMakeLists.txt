@@ -5,12 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Header-only library
-add_library(ringbuf INTERFACE)
-target_include_directories(ringbuf INTERFACE include)
+add_library(qbuf INTERFACE)
+target_include_directories(qbuf INTERFACE include)
 
 # Install headers
 install(
-  DIRECTORY include/ringbuf
+  DIRECTORY include/qbuf
   DESTINATION include
   FILES_MATCHING PATTERN "*.hpp"
 )
@@ -18,10 +18,10 @@ install(
 # Tests
 enable_testing()
 add_executable(test_runner tests/test_main.cpp)
-target_link_libraries(test_runner PRIVATE ringbuf)
+target_link_libraries(test_runner PRIVATE qbuf)
 add_test(NAME tests COMMAND test_runner)
 
 # Benchmark
 add_executable(benchmark src/benchmark.cpp)
-target_link_libraries(benchmark PRIVATE ringbuf)
+target_link_libraries(benchmark PRIVATE qbuf)
 target_compile_options(benchmark PRIVATE -O3)
