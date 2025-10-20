@@ -1153,6 +1153,319 @@ void test_move_semantics_with_timeout() {
     std::cout << "  PASSED: move semantics with timeout" << std::endl;
 }
 
+// Helper class to detect use-after-free issues
+class LifecycleTracker {
+public:
+    static std::atomic<int> instance_count;
+    static std::atomic<int> active_count;
+
+    int id;
+    bool is_valid;
+
+    LifecycleTracker(int id = 0) : id(id), is_valid(true) {
+        instance_count.fetch_add(1, std::memory_order_relaxed);
+        active_count.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // Copy constructor
+    LifecycleTracker(const LifecycleTracker& other)
+        : id(other.id), is_valid(true) {
+        assert(other.is_valid && "Attempting to copy from invalid object");
+        instance_count.fetch_add(1, std::memory_order_relaxed);
+        active_count.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // Move constructor
+    LifecycleTracker(LifecycleTracker&& other) noexcept
+        : id(other.id), is_valid(true) {
+        assert(other.is_valid && "Attempting to move from invalid object");
+        // Don't mark other as invalid - just transfer ownership
+    }
+
+    // Copy assignment
+    LifecycleTracker& operator=(const LifecycleTracker& other) {
+        assert(is_valid && "Assigning to invalid object");
+        assert(other.is_valid && "Assigning from invalid object");
+        id = other.id;
+        is_valid = true;
+        return *this;
+    }
+
+    // Move assignment
+    LifecycleTracker& operator=(LifecycleTracker&& other) noexcept {
+        assert(is_valid && "Assigning to invalid object");
+        assert(other.is_valid && "Assigning from invalid object");
+        id = other.id;
+        is_valid = true;
+        // Don't mark other as invalid - just transfer ownership
+        return *this;
+    }
+
+    ~LifecycleTracker() {
+        if (is_valid) {
+            active_count.fetch_sub(1, std::memory_order_relaxed);
+        }
+    }
+
+    void verify_valid() const {
+        assert(is_valid && "Object is invalid (use-after-free detected)");
+    }
+};
+
+std::atomic<int> LifecycleTracker::instance_count{0};
+std::atomic<int> LifecycleTracker::active_count{0};
+
+void test_use_after_free_single_element() {
+    std::cout << "Testing use-after-free with single element..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 8> queue;
+
+        // Enqueue an element
+        {
+            LifecycleTracker obj(42);
+            assert(queue.try_enqueue(std::move(obj)));
+        } // obj destroyed here
+
+        // Dequeue the element
+        auto dequeued = queue.try_dequeue();
+        assert(dequeued.has_value());
+
+        // Verify the dequeued object is valid and accessible
+        dequeued->verify_valid();
+        assert(dequeued->id == 42);
+
+        // Use the dequeued object - should not cause use-after-free
+        int value = dequeued->id;
+        assert(value == 42);
+    }
+
+    std::cout << "  PASSED: use-after-free single element" << std::endl;
+}
+
+void test_use_after_free_multiple_elements() {
+    std::cout << "Testing use-after-free with multiple elements..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 16> queue;
+
+        // Enqueue multiple elements
+        {
+            const int num_elements = 10;
+            for (int i = 0; i < num_elements; ++i) {
+                LifecycleTracker obj(i);
+                assert(queue.try_enqueue(std::move(obj)));
+            }
+        } // all temporary objs destroyed
+
+        // Dequeue and verify each element
+        for (int i = 0; i < 10; ++i) {
+            auto dequeued = queue.try_dequeue();
+            assert(dequeued.has_value());
+
+            // Verify validity and use the object
+            dequeued->verify_valid();
+            assert(dequeued->id == i);
+        }
+
+        // Queue should be empty
+        assert(queue.empty());
+    }
+
+    std::cout << "  PASSED: use-after-free multiple elements" << std::endl;
+}
+
+void test_use_after_free_bulk_operations() {
+    std::cout << "Testing use-after-free with bulk operations..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 32> queue;
+
+        // Bulk enqueue
+        {
+            std::vector<LifecycleTracker> input;
+            for (int i = 0; i < 8; ++i) {
+                input.push_back(LifecycleTracker(i * 10));
+            }
+
+            std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
+            assert(enqueued == input.size());
+        } // input vector destroyed
+
+        // Bulk dequeue
+        {
+            std::vector<LifecycleTracker> output(8);
+            std::size_t dequeued = queue.try_dequeue(output.data(), output.size());
+            assert(dequeued == 8);
+
+            // Verify all dequeued objects are valid and correct
+            for (std::size_t i = 0; i < output.size(); ++i) {
+                output[i].verify_valid();
+                assert(output[i].id == (int)i * 10);
+            }
+        } // output vector destroyed
+
+        assert(queue.empty());
+    }
+
+    std::cout << "  PASSED: use-after-free bulk operations" << std::endl;
+}
+
+void test_use_after_free_concurrent() {
+    std::cout << "Testing use-after-free with concurrent operations..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 256> queue;
+
+        constexpr int num_elements = 100;
+        std::atomic<bool> producer_done{false};
+
+        // Producer thread
+        std::thread producer([&queue, &producer_done]() {
+            for (int i = 0; i < num_elements; ++i) {
+                LifecycleTracker obj(i);
+                while (!queue.try_enqueue(std::move(obj))) {
+                    std::this_thread::yield();
+                }
+            }
+            producer_done.store(true, std::memory_order_release);
+        });
+
+        // Consumer thread
+        std::vector<int> consumed_ids;
+        std::thread consumer([&queue, &consumed_ids, &producer_done]() {
+            int count = 0;
+            while (count < num_elements) {
+                auto value = queue.try_dequeue();
+                if (value.has_value()) {
+                    // Verify dequeued object is valid
+                    value->verify_valid();
+                    consumed_ids.push_back(value->id);
+                    ++count;
+                } else if (producer_done.load(std::memory_order_acquire)) {
+                    continue;
+                } else {
+                    std::this_thread::yield();
+                }
+            }
+        });
+
+        producer.join();
+        consumer.join();
+
+        // Verify all elements were consumed in order
+        assert(consumed_ids.size() == num_elements);
+        for (int i = 0; i < num_elements; ++i) {
+            assert(consumed_ids[i] == i);
+        }
+    }
+
+    std::cout << "  PASSED: use-after-free concurrent operations" << std::endl;
+}
+
+void test_use_after_free_copy_semantics() {
+    std::cout << "Testing use-after-free with copy semantics..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 16> queue;
+
+        // Enqueue by copy
+        {
+            LifecycleTracker original(99);
+            assert(queue.try_enqueue(original));  // Calls const& overload
+
+            // Original should still be valid
+            original.verify_valid();
+        } // original destroyed
+
+        // Dequeue and verify
+        auto dequeued = queue.try_dequeue();
+        assert(dequeued.has_value());
+        dequeued->verify_valid();
+        assert(dequeued->id == 99);
+    }
+
+    std::cout << "  PASSED: use-after-free copy semantics" << std::endl;
+}
+
+void test_use_after_free_partial_dequeue() {
+    std::cout << "Testing use-after-free with partial dequeue operations..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 32> queue;
+
+        // Enqueue elements
+        {
+            std::vector<LifecycleTracker> input;
+            for (int i = 0; i < 10; ++i) {
+                input.push_back(LifecycleTracker(i));
+            }
+            queue.try_enqueue(input.data(), input.size());
+        } // input destroyed
+
+        // Partial dequeue
+        {
+            std::vector<LifecycleTracker> partial_output(5);
+            std::size_t dequeued1 = queue.try_dequeue(partial_output.data(), 5);
+            assert(dequeued1 == 5);
+
+            // Verify first batch
+            for (int i = 0; i < 5; ++i) {
+                partial_output[i].verify_valid();
+                assert(partial_output[i].id == i);
+            }
+        } // partial_output destroyed
+
+        // Dequeue remaining
+        {
+            std::vector<LifecycleTracker> remaining_output(5);
+            std::size_t dequeued2 = queue.try_dequeue(remaining_output.data(), 5);
+            assert(dequeued2 == 5);
+
+            // Verify second batch
+            for (int i = 0; i < 5; ++i) {
+                remaining_output[i].verify_valid();
+                assert(remaining_output[i].id == 5 + i);
+            }
+        } // remaining_output destroyed
+
+        assert(queue.empty());
+    }
+
+    std::cout << "  PASSED: use-after-free partial dequeue" << std::endl;
+}
+
+void test_use_after_free_blocking_operations() {
+    std::cout << "Testing use-after-free with blocking operations..." << std::endl;
+    {
+        SPSC<LifecycleTracker, 16> queue;
+
+        // Producer thread with blocking enqueue
+        std::thread producer([&queue]() {
+            for (int i = 0; i < 20; ++i) {
+                LifecycleTracker obj(i);
+                assert(queue.enqueue(std::move(obj), std::chrono::seconds(5)));
+            }
+        });
+
+        // Consumer thread with blocking dequeue
+        std::vector<int> consumed_ids;
+        std::thread consumer([&queue, &consumed_ids]() {
+            for (int i = 0; i < 20; ++i) {
+                auto value = queue.dequeue(std::chrono::seconds(5));
+                assert(value.has_value());
+                value->verify_valid();
+                consumed_ids.push_back(value->id);
+            }
+        });
+
+        producer.join();
+        consumer.join();
+
+        // Verify all elements were consumed in order
+        assert(consumed_ids.size() == 20);
+        for (int i = 0; i < 20; ++i) {
+            assert(consumed_ids[i] == i);
+        }
+    }
+
+    std::cout << "  PASSED: use-after-free blocking operations" << std::endl;
+}
+
 int main() {
     std::cout << "\n=== Running SPSC Tests ===" << std::endl;
     try {
@@ -1190,6 +1503,13 @@ int main() {
         test_graceful_shutdown_with_dequeue_timeout();
         test_graceful_shutdown_with_bulk_operations();
         test_move_semantics_with_timeout();
+        test_use_after_free_single_element();
+        test_use_after_free_multiple_elements();
+        test_use_after_free_bulk_operations();
+        test_use_after_free_concurrent();
+        test_use_after_free_copy_semantics();
+        test_use_after_free_partial_dequeue();
+        test_use_after_free_blocking_operations();
 
         std::cout << "\n=== All tests passed! ===" << std::endl;
         return 0;
