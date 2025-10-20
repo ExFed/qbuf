@@ -1,3 +1,4 @@
 # Copilot Instructions for qbuf
 
-Use `AGENTS.md`.
+Use the `AGENTS.md` which is appropriate to the directory in which you are
+working.

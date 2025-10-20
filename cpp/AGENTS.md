@@ -1,10 +1,5 @@
 # AGENTS.md
 
-## Version Control
-
-If all the changes since the last commit are yours, feel free to commit, but do
-not push.
-
 ## Project Map
 
 - Root repo hosts multi-language queue experiments; only `cpp/` is active today.
