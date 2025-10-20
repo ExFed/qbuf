@@ -5,16 +5,18 @@ Header-only implementations of lock-free thread-safe buffers and queues.
 ## Quick Build
 
 ```bash
-mkdir -p build && cd build
-cmake ..
-make
-ctest
+cmake -S . -B build --fresh
+cmake --build build -j$(nproc)
+ctest --output-on-failure --test-dir build
 ```
 
 With Guix:
 
 ```bash
-guix shell -m manifest.scm -- sh -c 'cmake -S . -B build && cmake --build build && ctest'
+guix shell -m manifest.scm -- sh -c ' \
+    cmake -S . -B build --fresh \
+    && cmake --build build -j$(nproc) \
+    && ctest --output-on-failure --test-dir build'
 ```
 
 ## Features
@@ -25,12 +27,12 @@ guix shell -m manifest.scm -- sh -c 'cmake -S . -B build && cmake --build build 
 
 ## Project Structure
 
-```
-include/qbuf/spsc.hpp  - SPSC queue implementation
-tests/test_main.cpp              - Tests
-CMakeLists.txt                   - Simple CMake config
-guix.scm                         - Guix package definition
-manifest.scm                     - Guix dev environment
+```text
+include/qbuf/spsc.hpp   # SPSC queue implementation
+tests/test_main.cpp     # Tests
+CMakeLists.txt          # Simple CMake config
+guix.scm                # Guix package definition
+manifest.scm            # Guix dev environment
 ```
 
 ## SPSC
@@ -114,5 +116,9 @@ queue.dequeue(output.data(), 100);  // Blocks until all dequeued
 
 ```bash
 # Run benchmarks
-guix shell -m manifest.scm -- sh -c 'cmake -S . -B build && cmake --build build && ./build/benchmark'
+guix shell -m manifest.scm -- sh -c ' \
+    cmake -S . -B build --fresh \
+    && cmake --build build -j$(nproc) \
+    && ./build/benchmark \
+    '
 ```
