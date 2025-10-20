@@ -206,48 +206,77 @@ public:
     }
 
     /**
-     * @brief Block until an element can be enqueued
+     * @brief Block until an element can be enqueued with timeout
      *
-     * Blocks the calling thread until the element is successfully enqueued.
-     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     * Blocks the calling thread until the element is successfully enqueued or
+     * the timeout expires. Uses a busy-wait with yielding to minimize latency.
      *
+     * @tparam Rep The arithmetic type representing the timeout duration count
+     * @tparam Period The `std::ratio` type representing the timeout duration period
      * @param value The value to enqueue
+     * @param timeout Maximum time to wait for enqueue
+     * @return true if successful, false if timeout expired
      */
-    void enqueue(const T& value) {
+    template <typename Rep, typename Period>
+    bool enqueue(const T& value, std::chrono::duration<Rep, Period> timeout) {
+        auto deadline = std::chrono::steady_clock::now() + timeout;
         while (!try_enqueue(value)) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return false;
+            }
             std::this_thread::yield();
         }
+        return true;
     }
 
     /**
-     * @brief Block until an element can be enqueued (move semantics)
+     * @brief Block until an element can be enqueued with timeout (move semantics)
      *
-     * Blocks the calling thread until the element is successfully enqueued.
-     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     * Blocks the calling thread until the element is successfully enqueued or
+     * the timeout expires. Uses a busy-wait with yielding to minimize latency.
      *
+     * @tparam Rep The arithmetic type representing the timeout duration count
+     * @tparam Period The `std::ratio` type representing the timeout duration period
      * @param value The value to enqueue (will be moved)
+     * @param timeout Maximum time to wait for enqueue
+     * @return true if successful, false if timeout expired
      */
-    void enqueue(T&& value) {
+    template <typename Rep, typename Period>
+    bool enqueue(T&& value, std::chrono::duration<Rep, Period> timeout) {
+        auto deadline = std::chrono::steady_clock::now() + timeout;
         while (!try_enqueue(std::move(value))) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return false;
+            }
             std::this_thread::yield();
         }
+        return true;
     }
 
     /**
-     * @brief Block until all elements are enqueued
+     * @brief Block until all elements are enqueued with timeout
      *
-     * Blocks until all `count` elements from the input array are successfully enqueued.
-     * Returns only when the entire batch has been queued. Enqueues in segments to handle
-     * wrap-around efficiently.
+     * Blocks until all `count` elements from the input array are successfully enqueued
+     * or the timeout expires. Enqueues in segments to handle wrap-around efficiently.
      *
+     * @tparam Rep The arithmetic type representing the timeout duration count
+     * @tparam Period The `std::ratio` type representing the timeout duration period
      * @param data Pointer to array of elements to enqueue
      * @param count Number of elements to enqueue
+     * @param timeout Maximum time to wait for all elements to be enqueued
+     * @return true if all elements were enqueued, false if timeout expired
      */
-    void enqueue(const T* data, std::size_t count) {
-        if (count == 0) return;
+    template <typename Rep, typename Period>
+    bool enqueue(const T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
+        if (count == 0) return true;
 
+        auto deadline = std::chrono::steady_clock::now() + timeout;
         std::size_t total_enqueued = 0;
         while (total_enqueued < count) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return false;
+            }
+
             std::size_t enqueued = try_enqueue(data + total_enqueued,
                                                 count - total_enqueued);
             total_enqueued += enqueued;
@@ -256,41 +285,59 @@ public:
                 std::this_thread::yield();
             }
         }
+        return true;
     }
 
     /**
-     * @brief Block until an element can be dequeued
+     * @brief Block until an element can be dequeued with timeout
      *
-     * Blocks the calling thread until an element is successfully dequeued.
-     * Uses a busy-wait with yielding to minimize latency while respecting CPU.
+     * Blocks the calling thread until an element is successfully dequeued or
+     * the timeout expires. Uses a busy-wait with yielding to minimize latency.
      *
-     * @return The dequeued element
+     * @tparam Rep The arithmetic type representing the timeout duration count
+     * @tparam Period The `std::ratio` type representing the timeout duration period
+     * @param timeout Maximum time to wait for dequeue
+     * @return std::optional containing the element if successful, std::nullopt if timeout expired
      */
-    T dequeue() {
+    template <typename Rep, typename Period>
+    std::optional<T> dequeue(std::chrono::duration<Rep, Period> timeout) {
+        auto deadline = std::chrono::steady_clock::now() + timeout;
         while (true) {
             auto value = try_dequeue();
             if (value.has_value()) {
-                return std::move(value.value());
+                return value;
+            }
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return std::nullopt;
             }
             std::this_thread::yield();
         }
     }
 
     /**
-     * @brief Block until all elements are dequeued
+     * @brief Block until all elements are dequeued with timeout
      *
-     * Blocks until all `count` elements are successfully dequeued into the output array.
-     * Returns only when the entire batch has been dequeued. Reads in segments to handle
-     * wrap-around efficiently.
+     * Blocks until all `count` elements are successfully dequeued into the output array
+     * or the timeout expires. Reads in segments to handle wrap-around efficiently.
      *
+     * @tparam Rep The arithmetic type representing the timeout duration count
+     * @tparam Period The `std::ratio` type representing the timeout duration period
      * @param data Pointer to output array
      * @param count Number of elements to dequeue
+     * @param timeout Maximum time to wait for all elements to be dequeued
+     * @return Number of elements successfully dequeued (may be less than count if timeout)
      */
-    void dequeue(T* data, std::size_t count) {
-        if (count == 0) return;
+    template <typename Rep, typename Period>
+    std::size_t dequeue(T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
+        if (count == 0) return 0;
 
+        auto deadline = std::chrono::steady_clock::now() + timeout;
         std::size_t total_dequeued = 0;
         while (total_dequeued < count) {
+            if (std::chrono::steady_clock::now() >= deadline) {
+                return total_dequeued;
+            }
+
             std::size_t dequeued = try_dequeue(data + total_dequeued,
                                                 count - total_dequeued);
             total_dequeued += dequeued;
@@ -299,6 +346,7 @@ public:
                 std::this_thread::yield();
             }
         }
+        return total_dequeued;
     }
 
     /**

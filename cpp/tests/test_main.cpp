@@ -403,14 +403,14 @@ void test_blocking_enqueue() {
 
     // Fill the queue to near capacity (7 elements max)
     for (int i = 0; i < 7; ++i) {
-        queue.enqueue(i);
+        assert(queue.enqueue(i, std::chrono::seconds(5)));
     }
     assert(queue.size() == 7);
 
     // Producer thread tries to enqueue (will block until consumer makes space)
     std::atomic<bool> producer_done{false};
     std::thread producer([&queue, &producer_done]() {
-        queue.enqueue(99); // Will block until space available
+        assert(queue.enqueue(99, std::chrono::seconds(5))); // Will block until space available
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -439,7 +439,10 @@ void test_blocking_dequeue() {
 
     // Consumer thread tries to dequeue from empty queue (will block)
     std::thread consumer([&queue, &dequeued_value, &consumer_done]() {
-        dequeued_value.store(queue.dequeue(), std::memory_order_release);
+        auto value = queue.dequeue(std::chrono::seconds(5));
+        if (value.has_value()) {
+            dequeued_value.store(value.value(), std::memory_order_release);
+        }
         consumer_done.store(true, std::memory_order_release);
     });
 
@@ -448,7 +451,7 @@ void test_blocking_dequeue() {
     assert(!consumer_done.load()); // Consumer should still be blocked
 
     // Producer enqueues an element, unblocking consumer
-    queue.enqueue(42);
+    assert(queue.enqueue(42, std::chrono::seconds(5)));
 
     // Wait for consumer to complete
     consumer.join();
@@ -467,7 +470,7 @@ void test_blocking_concurrent() {
     // Producer thread
     std::thread producer([&queue]() {
         for (int i = 0; i < num_elements; ++i) {
-            queue.enqueue(i);
+            assert(queue.enqueue(i, std::chrono::seconds(5)));
         }
     });
 
@@ -475,7 +478,9 @@ void test_blocking_concurrent() {
     std::vector<int> consumed;
     std::thread consumer([&queue, &consumed]() {
         for (int i = 0; i < num_elements; ++i) {
-            consumed.push_back(queue.dequeue());
+            auto value = queue.dequeue(std::chrono::seconds(5));
+            assert(value.has_value());
+            consumed.push_back(value.value());
         }
     });
 
@@ -501,7 +506,10 @@ void test_blocking_with_strings() {
 
     // Consumer thread dequeues (will block initially)
     std::thread consumer([&queue, &result, &done]() {
-        result = queue.dequeue();
+        auto value = queue.dequeue(std::chrono::seconds(5));
+        if (value.has_value()) {
+            result = value.value();
+        }
         done.store(true, std::memory_order_release);
     });
 
@@ -509,7 +517,7 @@ void test_blocking_with_strings() {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Producer enqueues
-    queue.enqueue(std::string("Hello, World!"));
+    assert(queue.enqueue(std::string("Hello, World!"), std::chrono::seconds(5)));
 
     consumer.join();
     assert(done.load());
@@ -528,15 +536,16 @@ void test_blocking_stress() {
     // Producer: continuously enqueue
     std::thread producer([&queue]() {
         for (int i = 0; i < total_ops; ++i) {
-            queue.enqueue(i);
+            assert(queue.enqueue(i, std::chrono::seconds(5)));
         }
     });
 
     // Consumer: continuously dequeue
     std::thread consumer([&queue, &consumed_count]() {
         for (int i = 0; i < total_ops; ++i) {
-            int value = queue.dequeue();
-            assert(value == i);
+            auto value = queue.dequeue(std::chrono::seconds(5));
+            assert(value.has_value());
+            assert(value.value() == i);
             consumed_count.fetch_add(1, std::memory_order_release);
         }
     });
@@ -556,7 +565,7 @@ void test_blocking_bulk_enqueue() {
 
     // Fill most of the queue
     std::vector<int> initial_batch = {1, 2, 3, 4, 5, 6, 7};
-    queue.enqueue(initial_batch.data(), initial_batch.size());
+    assert(queue.enqueue(initial_batch.data(), initial_batch.size(), std::chrono::seconds(5)));
     assert(queue.size() == 7);
 
     // Try to enqueue a large batch (will block until consumer drains)
@@ -567,7 +576,7 @@ void test_blocking_bulk_enqueue() {
 
     std::atomic<bool> producer_done{false};
     std::thread producer([&queue, &large_batch, &producer_done]() {
-        queue.enqueue(large_batch.data(), large_batch.size());
+        assert(queue.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(5)));
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -611,7 +620,8 @@ void test_blocking_bulk_dequeue() {
 
     // Consumer thread tries to dequeue 50 elements (will block)
     std::thread consumer([&queue, &output, &consumer_done]() {
-        queue.dequeue(output.data(), 50);
+        std::size_t dequeued = queue.dequeue(output.data(), 50, std::chrono::seconds(5));
+        assert(dequeued == 50);
         consumer_done.store(true, std::memory_order_release);
     });
 
@@ -627,8 +637,8 @@ void test_blocking_bulk_dequeue() {
         batch2[i] = 25 + i;
     }
 
-    queue.enqueue(batch1.data(), 25);
-    queue.enqueue(batch2.data(), 25);
+    assert(queue.enqueue(batch1.data(), 25, std::chrono::seconds(5)));
+    assert(queue.enqueue(batch2.data(), 25, std::chrono::seconds(5)));
 
     // Wait for consumer to complete
     consumer.join();
@@ -657,7 +667,7 @@ void test_blocking_bulk_concurrent() {
             for (int i = 0; i < batch_size; ++i) {
                 batch[i] = b * batch_size + i;
             }
-            queue.enqueue(batch.data(), batch_size);
+            assert(queue.enqueue(batch.data(), batch_size, std::chrono::seconds(5)));
         }
     });
 
@@ -669,7 +679,8 @@ void test_blocking_bulk_concurrent() {
         while (total_dequeued < total_elements) {
             int remaining = total_elements - total_dequeued;
             int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
-            queue.dequeue(batch.data(), to_dequeue);
+            std::size_t dequeued = queue.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5));
+            assert(dequeued == to_dequeue);
             for (int i = 0; i < to_dequeue; ++i) {
                 consumed.push_back(batch[i]);
             }
@@ -701,7 +712,7 @@ void test_blocking_bulk_mixed() {
     for (int i = 0; i < 8; ++i) input2[i] = 100 + i;
 
     // Enqueue with blocking bulk
-    queue.enqueue(input1.data(), input1.size());
+    assert(queue.enqueue(input1.data(), input1.size(), std::chrono::seconds(5)));
     assert(queue.size() == 10);
 
     // Dequeue with non-blocking try_dequeue
@@ -722,7 +733,8 @@ void test_blocking_bulk_mixed() {
 
     // Dequeue all remaining with blocking bulk
     std::vector<int> output2(13);
-    queue.dequeue(output2.data(), 13);
+    std::size_t dequeued2 = queue.dequeue(output2.data(), 13, std::chrono::seconds(5));
+    assert(dequeued2 == 13);
     assert(queue.empty());
 
     // Verify sequence - outputs match inputs in order
@@ -751,12 +763,13 @@ void test_blocking_bulk_with_strings() {
 
     // Producer: enqueue all with blocking bulk
     std::thread producer([&queue, &input]() {
-        queue.enqueue(input.data(), input.size());
+        assert(queue.enqueue(input.data(), input.size(), std::chrono::seconds(5)));
     });
 
     // Consumer: dequeue all with blocking bulk
     std::thread consumer([&queue, &output]() {
-        queue.dequeue(output.data(), output.size());
+        std::size_t dequeued = queue.dequeue(output.data(), output.size(), std::chrono::seconds(5));
+        assert(dequeued == output.size());
     });
 
     producer.join();
@@ -771,6 +784,373 @@ void test_blocking_bulk_with_strings() {
     assert(queue.empty());
 
     std::cout << "  PASSED: blocking bulk with strings" << std::endl;
+}
+
+void test_enqueue_timeout_on_full() {
+    std::cout << "Testing enqueue timeout when queue is full..." << std::endl;
+    SPSC<int, 8> queue;
+
+    // Fill the queue to capacity (7 elements max)
+    for (int i = 0; i < 7; ++i) {
+        assert(queue.try_enqueue(i));
+    }
+    assert(queue.size() == 7);
+
+    // Try to enqueue with short timeout (should fail)
+    bool success = queue.enqueue(999, std::chrono::milliseconds(50));
+    assert(!success); // Should timeout
+    assert(queue.size() == 7); // Queue unchanged
+
+    std::cout << "  PASSED: enqueue timeout on full" << std::endl;
+}
+
+void test_enqueue_timeout_with_space() {
+    std::cout << "Testing enqueue timeout when space becomes available..." << std::endl;
+    SPSC<int, 8> queue;
+
+    // Fill the queue
+    for (int i = 0; i < 7; ++i) {
+        assert(queue.enqueue(i, std::chrono::seconds(5)));
+    }
+
+    // Producer thread tries to enqueue with timeout
+    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_success{false};
+    std::thread producer([&queue, &producer_done, &producer_success]() {
+        producer_success.store(queue.enqueue(999, std::chrono::seconds(2)),
+                               std::memory_order_release);
+        producer_done.store(true, std::memory_order_release);
+    });
+
+    // Give producer time to attempt the enqueue
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Consumer makes space
+    auto value = queue.try_dequeue();
+    assert(value.has_value());
+    assert(value.value() == 0);
+
+    // Wait for producer to complete
+    producer.join();
+    assert(producer_done.load());
+    assert(producer_success.load()); // Should succeed eventually
+
+    std::cout << "  PASSED: enqueue timeout with space" << std::endl;
+}
+
+void test_dequeue_timeout_on_empty() {
+    std::cout << "Testing dequeue timeout when queue is empty..." << std::endl;
+    SPSC<int, 8> queue;
+
+    assert(queue.empty());
+
+    // Try to dequeue with short timeout (should return nullopt)
+    auto value = queue.dequeue(std::chrono::milliseconds(50));
+    assert(!value.has_value()); // Should timeout
+    assert(queue.empty());
+
+    std::cout << "  PASSED: dequeue timeout on empty" << std::endl;
+}
+
+void test_dequeue_timeout_with_data() {
+    std::cout << "Testing dequeue timeout when data becomes available..." << std::endl;
+    SPSC<int, 8> queue;
+
+    // Consumer thread tries to dequeue with timeout
+    std::atomic<bool> consumer_done{false};
+    std::atomic<int> dequeued_value{-1};
+    std::thread consumer([&queue, &consumer_done, &dequeued_value]() {
+        auto value = queue.dequeue(std::chrono::seconds(2));
+        if (value.has_value()) {
+            dequeued_value.store(value.value(), std::memory_order_release);
+        }
+        consumer_done.store(true, std::memory_order_release);
+    });
+
+    // Give consumer time to attempt the dequeue
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Producer enqueues an element
+    assert(queue.enqueue(42, std::chrono::seconds(5)));
+
+    // Wait for consumer to complete
+    consumer.join();
+    assert(consumer_done.load());
+    assert(dequeued_value.load() == 42); // Should succeed eventually
+
+    std::cout << "  PASSED: dequeue timeout with data" << std::endl;
+}
+
+void test_bulk_enqueue_timeout_on_full() {
+    std::cout << "Testing bulk enqueue timeout when queue is full..." << std::endl;
+    SPSC<int, 8> queue;
+
+    // Fill the queue to capacity (7 elements max for capacity 8)
+    std::vector<int> initial(7);
+    for (int i = 0; i < 7; ++i) initial[i] = i;
+    assert(queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5)));
+
+    // Try to enqueue bulk with short timeout (should fail)
+    std::vector<int> batch = {100, 101, 102, 103};
+    bool success = queue.enqueue(batch.data(), batch.size(),
+                                 std::chrono::milliseconds(50));
+    assert(!success); // Should timeout
+    assert(queue.size() == 7); // Queue unchanged
+
+    std::cout << "  PASSED: bulk enqueue timeout on full" << std::endl;
+}
+
+void test_bulk_enqueue_timeout_with_space() {
+    std::cout << "Testing bulk enqueue timeout when space becomes available..." << std::endl;
+    SPSC<int, 16> queue;
+
+    // Fill most of the queue
+    std::vector<int> initial(7);
+    for (int i = 0; i < 7; ++i) initial[i] = i;
+    assert(queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5)));
+
+    // Producer thread tries to enqueue bulk with timeout
+    std::vector<int> large_batch(10);
+    for (int i = 0; i < 10; ++i) large_batch[i] = 100 + i;
+
+    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_success{false};
+    std::thread producer([&queue, &large_batch, &producer_done, &producer_success]() {
+        producer_success.store(queue.enqueue(large_batch.data(), large_batch.size(),
+                                             std::chrono::seconds(2)),
+                               std::memory_order_release);
+        producer_done.store(true, std::memory_order_release);
+    });
+
+    // Give producer time to start
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Consumer gradually drains the queue
+    for (int i = 0; i < 3; ++i) {
+        auto val = queue.try_dequeue();
+        assert(val.has_value());
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    producer.join();
+    assert(producer_done.load());
+    assert(producer_success.load()); // Should succeed eventually
+
+    std::cout << "  PASSED: bulk enqueue timeout with space" << std::endl;
+}
+
+void test_bulk_dequeue_timeout_on_empty() {
+    std::cout << "Testing bulk dequeue timeout when queue is empty..." << std::endl;
+    SPSC<int, 16> queue;
+
+    assert(queue.empty());
+
+    // Try to dequeue bulk with short timeout
+    std::vector<int> output(10);
+    std::size_t dequeued = queue.dequeue(output.data(), output.size(),
+                                         std::chrono::milliseconds(50));
+    assert(dequeued == 0); // Should timeout with no data
+    assert(queue.empty());
+
+    std::cout << "  PASSED: bulk dequeue timeout on empty" << std::endl;
+}
+
+void test_bulk_dequeue_timeout_with_partial_data() {
+    std::cout << "Testing bulk dequeue timeout with partial data..." << std::endl;
+    SPSC<int, 16> queue;
+
+    // Enqueue fewer elements than requested
+    std::vector<int> initial = {1, 2, 3};
+    assert(queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5)));
+
+    // Consumer thread tries to dequeue more than available
+    std::vector<int> output(10);
+    std::atomic<bool> consumer_done{false};
+    std::atomic<std::size_t> dequeued_count{0};
+
+    std::thread consumer([&queue, &output, &consumer_done, &dequeued_count]() {
+        std::size_t dequeued = queue.dequeue(output.data(), output.size(),
+                                             std::chrono::milliseconds(100));
+        dequeued_count.store(dequeued, std::memory_order_release);
+        consumer_done.store(true, std::memory_order_release);
+    });
+
+    consumer.join();
+    assert(consumer_done.load());
+    assert(dequeued_count.load() == 3); // Should return what was available
+
+    std::cout << "  PASSED: bulk dequeue timeout with partial data" << std::endl;
+}
+
+void test_graceful_shutdown_with_enqueue_timeout() {
+    std::cout << "Testing graceful producer shutdown with timeout..." << std::endl;
+    SPSC<int, 64> queue;
+    std::atomic<bool> shutdown{false};
+    constexpr int target_elements = 100;
+    std::atomic<int> enqueued_count{0};
+
+    // Producer that respects shutdown signal using timeouts
+    std::thread producer([&queue, &shutdown, &enqueued_count]() {
+        for (int i = 0; i < target_elements; ++i) {
+            // Try to enqueue with a timeout that allows periodic shutdown checks
+            bool success = queue.enqueue(i, std::chrono::milliseconds(50));
+            if (success) {
+                enqueued_count.fetch_add(1, std::memory_order_release);
+            } else if (shutdown.load(std::memory_order_acquire)) {
+                // Timeout occurred and shutdown requested
+                break;
+            }
+            // If timeout occurred but shutdown not requested, retry
+        }
+    });
+
+    // Let producer run for a bit
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+    // Signal shutdown
+    shutdown.store(true, std::memory_order_release);
+
+    // Wait for producer to exit gracefully
+    producer.join();
+
+    // Producer should have enqueued some elements before shutdown
+    int enqueued = enqueued_count.load(std::memory_order_acquire);
+    assert(enqueued > 0);
+    assert(enqueued <= target_elements);
+
+    std::cout << "  PASSED: graceful producer shutdown with timeout" << std::endl;
+}
+
+void test_graceful_shutdown_with_dequeue_timeout() {
+    std::cout << "Testing graceful consumer shutdown with timeout..." << std::endl;
+    SPSC<int, 64> queue;
+    std::atomic<bool> shutdown{false};
+    std::atomic<int> dequeued_count{0};
+
+    // Producer thread
+    std::thread producer([&queue, &shutdown]() {
+        for (int i = 0; i < 50; ++i) {
+            assert(queue.enqueue(i, std::chrono::seconds(5)));
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+    });
+
+    // Consumer that respects shutdown signal using timeouts
+    std::thread consumer([&queue, &shutdown, &dequeued_count]() {
+        while (!shutdown.load(std::memory_order_acquire)) {
+            // Try to dequeue with a timeout that allows shutdown checks
+            auto value = queue.dequeue(std::chrono::milliseconds(50));
+            if (value.has_value()) {
+                dequeued_count.fetch_add(1, std::memory_order_release);
+            }
+            // Timeout or no value means we can check shutdown flag again
+        }
+    });
+
+    // Let threads run for a bit
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Signal shutdown
+    shutdown.store(true, std::memory_order_release);
+
+    // Wait for threads to exit gracefully
+    producer.join();
+    consumer.join();
+
+    // Consumer should have dequeued some elements
+    int dequeued = dequeued_count.load(std::memory_order_acquire);
+    assert(dequeued > 0);
+
+    std::cout << "  PASSED: graceful consumer shutdown with timeout" << std::endl;
+}
+
+void test_graceful_shutdown_with_bulk_operations() {
+    std::cout << "Testing graceful shutdown with bulk operations..." << std::endl;
+    SPSC<int, 128> queue;
+    std::atomic<bool> producer_shutdown{false};
+    std::atomic<bool> consumer_shutdown{false};
+    std::atomic<int> total_produced{0};
+    std::atomic<int> total_consumed{0};
+
+    // Producer with bulk operations and timeout-based shutdown checks
+    std::thread producer([&queue, &producer_shutdown, &total_produced]() {
+        for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire); ++batch) {
+            std::vector<int> batch_data(10);
+            for (int i = 0; i < 10; ++i) {
+                batch_data[i] = batch * 10 + i;
+            }
+
+            bool success = queue.enqueue(batch_data.data(), batch_data.size(),
+                                        std::chrono::milliseconds(100));
+            if (success) {
+                total_produced.fetch_add(10, std::memory_order_release);
+            } else if (!producer_shutdown.load(std::memory_order_acquire)) {
+                // Timeout but not shutdown, retry
+                --batch;
+            }
+        }
+    });
+
+    // Consumer with bulk operations and timeout-based shutdown checks
+    std::thread consumer([&queue, &consumer_shutdown, &total_consumed]() {
+        std::vector<int> buffer(20);
+        while (!consumer_shutdown.load(std::memory_order_acquire)) {
+            std::size_t dequeued = queue.dequeue(buffer.data(), buffer.size(),
+                                                 std::chrono::milliseconds(100));
+            if (dequeued > 0) {
+                total_consumed.fetch_add(dequeued, std::memory_order_release);
+            }
+        }
+
+        // Final drain before exit
+        std::vector<int> final_buffer(50);
+        while (true) {
+            std::size_t dequeued = queue.dequeue(final_buffer.data(), final_buffer.size(),
+                                                 std::chrono::milliseconds(10));
+            if (dequeued == 0) break;
+            total_consumed.fetch_add(dequeued, std::memory_order_release);
+        }
+    });
+
+    // Let them run
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // Signal shutdown
+    producer_shutdown.store(true, std::memory_order_release);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    consumer_shutdown.store(true, std::memory_order_release);
+
+    producer.join();
+    consumer.join();
+
+    // Verify data consistency
+    int produced = total_produced.load(std::memory_order_acquire);
+    int consumed = total_consumed.load(std::memory_order_acquire);
+    assert(produced > 0);
+    assert(produced == consumed);
+
+    std::cout << "  PASSED: graceful shutdown with bulk operations" << std::endl;
+}
+
+void test_move_semantics_with_timeout() {
+    std::cout << "Testing move semantics with enqueue timeout..." << std::endl;
+    SPSC<std::string, 8> queue;
+
+    // Fill the queue
+    for (int i = 0; i < 7; ++i) {
+        assert(queue.enqueue(std::string("element") + std::to_string(i),
+                             std::chrono::seconds(5)));
+    }
+
+    // Try to enqueue with move and timeout (should fail)
+    std::string to_enqueue = "timeout_test";
+    bool success = queue.enqueue(std::move(to_enqueue), std::chrono::milliseconds(50));
+    assert(!success); // Should timeout
+
+    // Note: after failed enqueue with timeout, the moved string may or may not be valid
+    // depending on implementation. We don't rely on it here.
+
+    std::cout << "  PASSED: move semantics with timeout" << std::endl;
 }
 
 int main() {
@@ -798,6 +1178,18 @@ int main() {
         test_blocking_bulk_concurrent();
         test_blocking_bulk_mixed();
         test_blocking_bulk_with_strings();
+        test_enqueue_timeout_on_full();
+        test_enqueue_timeout_with_space();
+        test_dequeue_timeout_on_empty();
+        test_dequeue_timeout_with_data();
+        test_bulk_enqueue_timeout_on_full();
+        test_bulk_enqueue_timeout_with_space();
+        test_bulk_dequeue_timeout_on_empty();
+        test_bulk_dequeue_timeout_with_partial_data();
+        test_graceful_shutdown_with_enqueue_timeout();
+        test_graceful_shutdown_with_dequeue_timeout();
+        test_graceful_shutdown_with_bulk_operations();
+        test_move_semantics_with_timeout();
 
         std::cout << "\n=== All tests passed! ===" << std::endl;
         return 0;
