@@ -29,11 +29,12 @@ private:
 };
 
 // Benchmark: Individual enqueue/dequeue operations
+template<std::size_t Capacity>
 void benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    SPSCQueue<int, 4096> queue;
+    SPSCQueue<int, Capacity> queue;
 
     // Producer thread
     Timer timer;
@@ -73,11 +74,12 @@ void benchmark_individual_ops(int iterations, int batch_size) {
 }
 
 // Benchmark: Bulk enqueue/dequeue operations
+template<std::size_t Capacity>
 void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    SPSCQueue<int, 4096> queue;
+    SPSCQueue<int, Capacity> queue;
 
     // Producer thread
     Timer timer;
@@ -126,16 +128,30 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
 // Benchmark with varying batch sizes
 void benchmark_comparison() {
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║           SPSCQueue Performance Comparison                  ║" << std::endl;
+    std::cout << "║           SPSCQueue Performance Comparison                 ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
 
     std::vector<std::pair<int, int>> configs = {
-        {10000, 1},    // Many individual ops
-        {1000, 10},    // Small batches
-        {500, 20},     // Medium batches
-        {100, 100},    // Large batches
-        {50, 200},     // Very large batches
+        {100000, 1},    // Many individual ops
+        {10000, 10},    // Small batches
+        {5000, 20},     // Medium batches
+        {1000, 100},    // Large batches
+        {500, 200},     // Very large batches
     };
+
+    std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
+    std::cout << "│ Config: 10k total ops, varied batch sizes                   │" << std::endl;
+    std::cout << "│ Queue capacity: 64                                          │" << std::endl;
+    std::cout << "└─────────────────────────────────────────────────────────────┘" << std::endl;
+
+    for (const auto& [iterations, batch_size] : configs) {
+        std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size << " batch size" << std::endl;
+        std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
+
+        benchmark_individual_ops<64>(iterations, batch_size);
+        benchmark_bulk_ops<64>(iterations, batch_size);
+    }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
     std::cout << "│ Config: 10k total ops, varied batch sizes                   │" << std::endl;
@@ -144,19 +160,15 @@ void benchmark_comparison() {
 
     for (const auto& [iterations, batch_size] : configs) {
         std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
-        std::cout << "Configuration: " << iterations << " iterations × " << batch_size << " batch size" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
-        benchmark_individual_ops(iterations, batch_size);
-        benchmark_bulk_ops(iterations, batch_size);
-
-        // Calculate improvement
-        // (This is approximate since we can't easily capture the timing)
-        std::cout << "\n→ Bulk operations should show better cache locality and reduced loop overhead" << std::endl;
+        benchmark_individual_ops<4096>(iterations, batch_size);
+        benchmark_bulk_ops<4096>(iterations, batch_size);
     }
 
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║                    Benchmark Complete                       ║" << std::endl;
+    std::cout << "║                    Benchmark Complete                      ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
 }
 

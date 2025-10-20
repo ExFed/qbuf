@@ -34,16 +34,7 @@ public:
      * @return true if successful, false if queue is full
      */
     bool try_enqueue(const T& value) {
-        const auto current_tail = tail_.load(std::memory_order_relaxed);
-        const auto next_tail = increment(current_tail);
-
-        if (next_tail == head_.load(std::memory_order_acquire)) {
-            return false; // Queue is full
-        }
-
-        buffer_[current_tail] = value;
-        tail_.store(next_tail, std::memory_order_release);
-        return true;
+        return try_enqueue(T(value));
     }
 
     /**
