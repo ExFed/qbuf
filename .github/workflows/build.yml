@@ -19,8 +19,8 @@ jobs:
         sudo apt-get install -y guix
         sudo systemctl start guix-daemon || true
 
-    - name: Build and test with Guix
-      working-directory: cpp
+    - name: Build and test cpp/qbuf with Guix
+      working-directory: cpp/qbuf
       run: |
         guix shell -m manifest.scm -- sh -c '
           cmake -S . -B build &&
