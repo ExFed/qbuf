@@ -4,6 +4,11 @@ project(qbuf-cpp LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Set default build type if not specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Debug")
+endif()
+
 # Find threads library for std::thread support
 find_package(Threads REQUIRED)
 
