@@ -10,7 +10,8 @@
   (version "0.1.0")
   (source (local-file "." "qbuf-cpp-checkout" #:recursive? #t))
   (build-system cmake-build-system)
-  (arguments `(#:tests? #t))
+  (arguments `(#:tests? #t
+               #:build-type "Debug"))
   (native-inputs (list gcc-11 cmake))
   (synopsis "Thread-safe buffers and queues in C++")
   (description
