@@ -44,15 +44,15 @@ public:
      * @return true if successful, false if queue is full
      */
     bool try_enqueue(T&& value) {
-        const auto current_tail = tail_.load(std::memory_order_seq_cst);
+        const auto current_tail = tail_.load(std::memory_order_relaxed);
         const auto next_tail = increment(current_tail);
 
-        if (next_tail == head_.load(std::memory_order_seq_cst)) {
+        if (next_tail == head_.load(std::memory_order_acquire)) {
             return false; // Queue is full
         }
 
         buffer_[current_tail] = std::move(value);
-        tail_.store(next_tail, std::memory_order_seq_cst);
+        tail_.store(next_tail, std::memory_order_release);
         return true;
     }
 
@@ -127,14 +127,14 @@ public:
      * @return std::optional containing the value if successful, std::nullopt if queue is empty
      */
     std::optional<T> try_dequeue() {
-        const auto current_head = head_.load(std::memory_order_seq_cst);
+        const auto current_head = head_.load(std::memory_order_relaxed);
 
-        if (current_head == tail_.load(std::memory_order_seq_cst)) {
+        if (current_head == tail_.load(std::memory_order_acquire)) {
             return std::nullopt; // Queue is empty
         }
 
         T value = std::move(buffer_[current_head]);
-        head_.store(increment(current_head), std::memory_order_seq_cst);
+        head_.store(increment(current_head), std::memory_order_release);
         return value;
     }
 

@@ -23,6 +23,8 @@ enable_testing()
 add_executable(test_runner tests/test_main.cpp tests/test_spsc.cpp)
 target_include_directories(test_runner PRIVATE tests)
 target_link_libraries(test_runner PRIVATE qbuf Threads::Threads)
+# Disable optimization for test_runner due to GCC optimization bug with atomics
+target_compile_options(test_runner PRIVATE -O0)
 add_test(NAME tests COMMAND test_runner)
 
 # Benchmark
