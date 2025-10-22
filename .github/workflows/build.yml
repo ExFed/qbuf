@@ -17,11 +17,8 @@ jobs:
       id: guix-install
       run: |
         set -euo pipefail
-        # Use the official Guix installer rather than relying on apt packages on ubuntu-latest
-        wget https://git.savannah.gnu.org/cgit/guix.git/plain/etc/guix-install.sh -O guix-install.sh
-        chmod +x guix-install.sh
-        sudo ./guix-install.sh
-        # start the guix-daemon (may require sudo on the runner)
+        sudo apt-get update
+        sudo apt-get install -y guix
         sudo systemctl start guix-daemon || true
 
     - name: Check Guix is available
