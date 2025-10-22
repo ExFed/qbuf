@@ -7,23 +7,48 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  guix-setup:
     runs-on: ubuntu-latest
-
+    outputs:
+      guix-installed: ${{ steps.guix-install.outcome }}
     steps:
     - uses: actions/checkout@v4
-
     - name: Install Guix
+      id: guix-install
       run: |
+        set -euf -o pipefail
         sudo apt-get update
         sudo apt-get install -y guix
         sudo systemctl start guix-daemon || true
-
-    - name: Build and test cpp/qbuf with Guix
+    - name: Install Dev Environment
       working-directory: cpp/qbuf
       run: |
-        guix shell -m manifest.scm -- sh -c '
-          cmake -S . -B build &&
-          cmake --build build &&
-          ctest --output-on-failure --test-dir build
-        '
+        guix package -m manifest.scm
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: guix-setup
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check C++ code formatting
+      working-directory: cpp/qbuf
+      run: |
+        guix shell -- sh <<EOF
+          find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror
+        EOF
+
+  build:
+    runs-on: ubuntu-latest
+    needs: guix-setup
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check C++ code formatting
+      working-directory: cpp/qbuf
+      run: |
+        guix shell -m manifest.scm -- sh <<EOF
+          cmake -S . -B build --fresh \
+          && cmake --build build --clean-first \
+          && ctest --output-on-failure --test-dir build
+        EOF
