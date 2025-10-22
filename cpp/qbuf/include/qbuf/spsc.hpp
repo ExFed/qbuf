@@ -1,11 +1,11 @@
 #pragma once
 
-#include <atomic>
 #include <array>
-#include <optional>
-#include <cstddef>
-#include <thread>
+#include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <optional>
+#include <thread>
 
 namespace qbuf {
 
@@ -22,10 +22,11 @@ template <typename T, std::size_t Capacity>
 class SPSC {
 public:
     static_assert(Capacity > 0, "Queue capacity must be greater than 0");
-    static_assert((Capacity & (Capacity - 1)) == 0,
-                  "Queue capacity must be a power of 2");
+    static_assert((Capacity & (Capacity - 1)) == 0, "Queue capacity must be a power of 2");
 
-    SPSC() : head_(0), tail_(0) {}
+    SPSC()
+        : head_(0)
+        , tail_(0) { }
 
     /**
      * @brief Try to enqueue a single element
@@ -33,9 +34,7 @@ public:
      * @param value The value to enqueue
      * @return true if successful, false if queue is full
      */
-    bool try_enqueue(const T& value) {
-        return try_enqueue(T(value));
-    }
+    bool try_enqueue(const T& value) { return try_enqueue(T(value)); }
 
     /**
      * @brief Try to enqueue a single element (move semantics)
@@ -277,8 +276,7 @@ public:
                 return false;
             }
 
-            std::size_t enqueued = try_enqueue(data + total_enqueued,
-                                                count - total_enqueued);
+            std::size_t enqueued = try_enqueue(data + total_enqueued, count - total_enqueued);
             total_enqueued += enqueued;
 
             if (total_enqueued < count) {
@@ -338,8 +336,7 @@ public:
                 return total_dequeued;
             }
 
-            std::size_t dequeued = try_dequeue(data + total_dequeued,
-                                                count - total_dequeued);
+            std::size_t dequeued = try_dequeue(data + total_dequeued, count - total_dequeued);
             total_dequeued += dequeued;
 
             if (total_dequeued < count) {
@@ -355,8 +352,7 @@ public:
      * @return true if empty, false otherwise
      */
     bool empty() const {
-        return head_.load(std::memory_order_acquire) ==
-               tail_.load(std::memory_order_acquire);
+        return head_.load(std::memory_order_acquire) == tail_.load(std::memory_order_acquire);
     }
 
     /**
@@ -371,9 +367,7 @@ public:
     }
 
 private:
-    static constexpr std::size_t increment(std::size_t idx) {
-        return (idx + 1) & (Capacity - 1);
-    }
+    static constexpr std::size_t increment(std::size_t idx) { return (idx + 1) & (Capacity - 1); }
 
     alignas(64) std::atomic<std::size_t> head_;
     alignas(64) std::atomic<std::size_t> tail_;
@@ -392,7 +386,8 @@ private:
 template <typename T, std::size_t Capacity>
 class ProducerHandle {
 public:
-    ProducerHandle(SPSC<T, Capacity>& queue) : queue_(queue) {}
+    ProducerHandle(SPSC<T, Capacity>& queue)
+        : queue_(queue) { }
 
     /**
      * @brief Try to enqueue a single element
@@ -400,9 +395,7 @@ public:
      * @param value The value to enqueue
      * @return true if successful, false if queue is full
      */
-    bool try_enqueue(const T& value) {
-        return queue_.try_enqueue(value);
-    }
+    bool try_enqueue(const T& value) { return queue_.try_enqueue(value); }
 
     /**
      * @brief Try to enqueue a single element (move semantics)
@@ -410,9 +403,7 @@ public:
      * @param value The value to enqueue
      * @return true if successful, false if queue is full
      */
-    bool try_enqueue(T&& value) {
-        return queue_.try_enqueue(std::move(value));
-    }
+    bool try_enqueue(T&& value) { return queue_.try_enqueue(std::move(value)); }
 
     /**
      * @brief Try to enqueue multiple elements
@@ -473,18 +464,14 @@ public:
      *
      * @return true if empty, false otherwise
      */
-    bool empty() const {
-        return queue_.empty();
-    }
+    bool empty() const { return queue_.empty(); }
 
     /**
      * @brief Get approximate size of the queue
      *
      * @return Approximate number of elements in the queue
      */
-    std::size_t size() const {
-        return queue_.size();
-    }
+    std::size_t size() const { return queue_.size(); }
 
 private:
     SPSC<T, Capacity>& queue_;
@@ -502,16 +489,15 @@ private:
 template <typename T, std::size_t Capacity>
 class ConsumerHandle {
 public:
-    ConsumerHandle(SPSC<T, Capacity>& queue) : queue_(queue) {}
+    ConsumerHandle(SPSC<T, Capacity>& queue)
+        : queue_(queue) { }
 
     /**
      * @brief Try to dequeue a single element
      *
      * @return std::optional containing the value if successful, std::nullopt if queue is empty
      */
-    std::optional<T> try_dequeue() {
-        return queue_.try_dequeue();
-    }
+    std::optional<T> try_dequeue() { return queue_.try_dequeue(); }
 
     /**
      * @brief Try to dequeue multiple elements
@@ -520,9 +506,7 @@ public:
      * @param count Maximum number of elements to dequeue
      * @return Number of elements successfully dequeued
      */
-    std::size_t try_dequeue(T* data, std::size_t count) {
-        return queue_.try_dequeue(data, count);
-    }
+    std::size_t try_dequeue(T* data, std::size_t count) { return queue_.try_dequeue(data, count); }
 
     /**
      * @brief Block until an element can be dequeued with timeout
@@ -557,18 +541,14 @@ public:
      *
      * @return true if empty, false otherwise
      */
-    bool empty() const {
-        return queue_.empty();
-    }
+    bool empty() const { return queue_.empty(); }
 
     /**
      * @brief Get approximate size of the queue
      *
      * @return Approximate number of elements in the queue
      */
-    std::size_t size() const {
-        return queue_.size();
-    }
+    std::size_t size() const { return queue_.size(); }
 
 private:
     SPSC<T, Capacity>& queue_;

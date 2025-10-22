@@ -2,9 +2,10 @@
 build/
 
 # IDE & temp files
-.vscode/
+.cache/
+.clj-kondo/
 .idea/
+.lsp/
+.vscode/
 *.swp
 *~
-.clj-kondo/
-.lsp/

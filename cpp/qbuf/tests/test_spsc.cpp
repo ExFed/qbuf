@@ -1,10 +1,10 @@
+#include <atomic>
 #include <cassert>
 #include <iostream>
+#include <qbuf/spsc.hpp>
+#include <string>
 #include <thread>
 #include <vector>
-#include <string>
-#include <atomic>
-#include <qbuf/spsc.hpp>
 
 using namespace qbuf;
 
@@ -75,7 +75,7 @@ void test_fifo_ordering() {
     std::cout << "Testing FIFO ordering..." << std::endl;
     SPSC<int, 8> queue;
 
-    std::vector<int> input = {10, 20, 30, 40, 50};
+    std::vector<int> input = { 10, 20, 30, 40, 50 };
     std::vector<int> output;
 
     for (int val : input) {
@@ -136,7 +136,7 @@ void test_concurrent() {
     std::cout << "Testing concurrent producer-consumer..." << std::endl;
     SPSC<int, 256> queue;
     constexpr int num_elements = 1000;
-    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_done { false };
 
     // Producer thread
     std::thread producer([&queue, &producer_done]() {
@@ -183,7 +183,7 @@ void test_bulk_enqueue_dequeue() {
     std::cout << "Testing bulk enqueue/dequeue..." << std::endl;
     SPSC<int, 16> queue;
 
-    std::vector<int> input = {10, 20, 30, 40, 50, 60, 70, 80};
+    std::vector<int> input = { 10, 20, 30, 40, 50, 60, 70, 80 };
     std::vector<int> output(input.size());
 
     // Enqueue all elements
@@ -213,7 +213,7 @@ void test_bulk_partial() {
     std::cout << "Testing partial bulk operations..." << std::endl;
     SPSC<int, 16> queue;
 
-    std::vector<int> input = {1, 2, 3, 4, 5, 6, 7, 8};
+    std::vector<int> input = { 1, 2, 3, 4, 5, 6, 7, 8 };
     std::vector<int> consumed_output;
 
     // Enqueue first batch
@@ -256,8 +256,8 @@ void test_bulk_full_queue() {
     std::cout << "Testing bulk enqueue on full queue..." << std::endl;
     SPSC<int, 8> queue;
 
-    std::vector<int> input1 = {1, 2, 3, 4, 5, 6};
-    std::vector<int> input2 = {7, 8, 9, 10};
+    std::vector<int> input1 = { 1, 2, 3, 4, 5, 6 };
+    std::vector<int> input2 = { 7, 8, 9, 10 };
 
     // Fill most of the queue (capacity is 8, so we can store 7)
     std::size_t enqueued1 = queue.try_enqueue(input1.data(), input1.size());
@@ -290,11 +290,11 @@ void test_bulk_wrap_around() {
     SPSC<int, 8> queue;
 
     // Fill, partially consume, then fill again to create wrap-around
-    std::vector<int> batch1 = {1, 2, 3, 4};
-    std::vector<int> batch2 = {5, 6};
-    std::vector<int> batch3 = {7, 8, 9, 10};
+    std::vector<int> batch1 = { 1, 2, 3, 4 };
+    std::vector<int> batch2 = { 5, 6 };
+    std::vector<int> batch3 = { 7, 8, 9, 10 };
     std::vector<int> output(10);
-    std::vector<int> expected_order = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+    std::vector<int> expected_order = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
     // Enqueue first batch
     std::size_t e1 = queue.try_enqueue(batch1.data(), batch1.size());
@@ -324,7 +324,7 @@ void test_bulk_wrap_around() {
     assert(d2 == 7);
 
     // Verify order: 3, 4, 5, 6, 7, 8, 9
-    int expected[] = {3, 4, 5, 6, 7, 8, 9};
+    int expected[] = { 3, 4, 5, 6, 7, 8, 9 };
     for (int i = 0; i < 7; ++i) {
         assert(final_output[i] == expected[i]);
     }
@@ -343,7 +343,7 @@ void test_bulk_with_strings() {
     std::cout << "Testing bulk operations with strings..." << std::endl;
     SPSC<std::string, 16> queue;
 
-    std::vector<std::string> input = {"hello", "world", "test", "bulk"};
+    std::vector<std::string> input = { "hello", "world", "test", "bulk" };
     std::vector<std::string> output(input.size());
 
     std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
@@ -368,7 +368,7 @@ void test_bulk_concurrent() {
     constexpr int num_batches = 50;
     constexpr int batch_size = 20;
     constexpr int total_elements = num_batches * batch_size;
-    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_done { false };
 
     // Producer: enqueue in batches
     std::thread producer([&queue, &producer_done]() {
@@ -379,8 +379,7 @@ void test_bulk_concurrent() {
             }
             std::size_t enqueued = 0;
             while (enqueued < batch_size) {
-                enqueued += queue.try_enqueue(batch.data() + enqueued,
-                                                     batch_size - enqueued);
+                enqueued += queue.try_enqueue(batch.data() + enqueued, batch_size - enqueued);
                 if (enqueued < batch_size) {
                     std::this_thread::yield();
                 }
@@ -432,7 +431,7 @@ void test_blocking_enqueue() {
     assert(queue.size() == 7);
 
     // Producer thread tries to enqueue (will block until consumer makes space)
-    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_done { false };
     std::thread producer([&queue, &producer_done]() {
         bool enqueued = queue.enqueue(99, std::chrono::seconds(5));
         assert(enqueued);
@@ -459,8 +458,8 @@ void test_blocking_dequeue() {
     std::cout << "Testing blocking dequeue..." << std::endl;
     SPSC<int, 16> queue;
 
-    std::atomic<int> dequeued_value{-1};
-    std::atomic<bool> consumer_done{false};
+    std::atomic<int> dequeued_value { -1 };
+    std::atomic<bool> consumer_done { false };
 
     // Consumer thread tries to dequeue from empty queue (will block)
     std::thread consumer([&queue, &dequeued_value, &consumer_done]() {
@@ -529,7 +528,7 @@ void test_blocking_with_strings() {
     SPSC<std::string, 16> queue;
 
     std::string result;
-    std::atomic<bool> done{false};
+    std::atomic<bool> done { false };
 
     // Consumer thread dequeues (will block initially)
     std::thread consumer([&queue, &result, &done]() {
@@ -559,7 +558,7 @@ void test_blocking_stress() {
     std::cout << "Testing blocking operations under stress..." << std::endl;
     SPSC<int, 64> queue;
     constexpr int total_ops = 10000;
-    std::atomic<int> consumed_count{0};
+    std::atomic<int> consumed_count { 0 };
 
     // Producer: continuously enqueue
     std::thread producer([&queue]() {
@@ -593,8 +592,9 @@ void test_blocking_bulk_enqueue() {
     SPSC<int, 16> queue;
 
     // Fill most of the queue
-    std::vector<int> initial_batch = {1, 2, 3, 4, 5, 6, 7};
-    bool initial_enqueued = queue.enqueue(initial_batch.data(), initial_batch.size(), std::chrono::seconds(5));
+    std::vector<int> initial_batch = { 1, 2, 3, 4, 5, 6, 7 };
+    bool initial_enqueued
+        = queue.enqueue(initial_batch.data(), initial_batch.size(), std::chrono::seconds(5));
     assert(initial_enqueued);
     assert(queue.size() == 7);
 
@@ -604,9 +604,10 @@ void test_blocking_bulk_enqueue() {
         large_batch[i] = 100 + i;
     }
 
-    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_done { false };
     std::thread producer([&queue, &large_batch, &producer_done]() {
-        bool enqueued = queue.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(5));
+        bool enqueued
+            = queue.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(5));
         assert(enqueued);
         producer_done.store(true, std::memory_order_release);
     });
@@ -617,7 +618,7 @@ void test_blocking_bulk_enqueue() {
 
     // Consumer drains the queue gradually
     std::vector<int> consumed;
-    int total_to_drain = 27;  // 7 initial + 20 large_batch
+    int total_to_drain = 27; // 7 initial + 20 large_batch
     while (consumed.size() < total_to_drain) {
         auto value = queue.try_dequeue();
         if (value.has_value()) {
@@ -647,7 +648,7 @@ void test_blocking_bulk_dequeue() {
     SPSC<int, 128> queue;
 
     std::vector<int> output(50);
-    std::atomic<bool> consumer_done{false};
+    std::atomic<bool> consumer_done { false };
 
     // Consumer thread tries to dequeue 50 elements (will block)
     std::thread consumer([&queue, &output, &consumer_done]() {
@@ -790,10 +791,8 @@ void test_blocking_bulk_with_strings() {
     std::cout << "Testing blocking bulk with strings..." << std::endl;
     SPSC<std::string, 32> queue;
 
-    std::vector<std::string> input = {
-        "hello", "world", "blocking", "bulk", "operations",
-        "are", "now", "fully", "implemented", "and", "tested"
-    };
+    std::vector<std::string> input = { "hello", "world", "blocking", "bulk", "operations", "are",
+        "now", "fully", "implemented", "and", "tested" };
     std::vector<std::string> output(input.size());
 
     // Producer: enqueue all with blocking bulk
@@ -852,11 +851,11 @@ void test_enqueue_timeout_with_space() {
     }
 
     // Producer thread tries to enqueue with timeout
-    std::atomic<bool> producer_done{false};
-    std::atomic<bool> producer_success{false};
+    std::atomic<bool> producer_done { false };
+    std::atomic<bool> producer_success { false };
     std::thread producer([&queue, &producer_done, &producer_success]() {
-        producer_success.store(queue.enqueue(999, std::chrono::seconds(2)),
-                               std::memory_order_release);
+        producer_success.store(
+            queue.enqueue(999, std::chrono::seconds(2)), std::memory_order_release);
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -895,8 +894,8 @@ void test_dequeue_timeout_with_data() {
     SPSC<int, 8> queue;
 
     // Consumer thread tries to dequeue with timeout
-    std::atomic<bool> consumer_done{false};
-    std::atomic<int> dequeued_value{-1};
+    std::atomic<bool> consumer_done { false };
+    std::atomic<int> dequeued_value { -1 };
     std::thread consumer([&queue, &consumer_done, &dequeued_value]() {
         auto value = queue.dequeue(std::chrono::seconds(2));
         if (value.has_value()) {
@@ -931,9 +930,8 @@ void test_bulk_enqueue_timeout_on_full() {
     assert(enqueued);
 
     // Try to enqueue bulk with short timeout (should fail)
-    std::vector<int> batch = {100, 101, 102, 103};
-    bool success = queue.enqueue(batch.data(), batch.size(),
-                                 std::chrono::milliseconds(50));
+    std::vector<int> batch = { 100, 101, 102, 103 };
+    bool success = queue.enqueue(batch.data(), batch.size(), std::chrono::milliseconds(50));
     assert(!success); // Should timeout
     assert(queue.size() == 7); // Queue unchanged
 
@@ -954,12 +952,12 @@ void test_bulk_enqueue_timeout_with_space() {
     std::vector<int> large_batch(10);
     for (int i = 0; i < 10; ++i) large_batch[i] = 100 + i;
 
-    std::atomic<bool> producer_done{false};
-    std::atomic<bool> producer_success{false};
+    std::atomic<bool> producer_done { false };
+    std::atomic<bool> producer_success { false };
     std::thread producer([&queue, &large_batch, &producer_done, &producer_success]() {
-        producer_success.store(queue.enqueue(large_batch.data(), large_batch.size(),
-                                             std::chrono::seconds(2)),
-                               std::memory_order_release);
+        producer_success.store(
+            queue.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(2)),
+            std::memory_order_release);
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -988,8 +986,8 @@ void test_bulk_dequeue_timeout_on_empty() {
 
     // Try to dequeue bulk with short timeout
     std::vector<int> output(10);
-    std::size_t dequeued = queue.dequeue(output.data(), output.size(),
-                                         std::chrono::milliseconds(50));
+    std::size_t dequeued
+        = queue.dequeue(output.data(), output.size(), std::chrono::milliseconds(50));
     assert(dequeued == 0); // Should timeout with no data
     assert(queue.empty());
 
@@ -1001,18 +999,18 @@ void test_bulk_dequeue_timeout_with_partial_data() {
     SPSC<int, 16> queue;
 
     // Enqueue fewer elements than requested
-    std::vector<int> initial = {1, 2, 3};
+    std::vector<int> initial = { 1, 2, 3 };
     bool enqueued = queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5));
     assert(enqueued);
 
     // Consumer thread tries to dequeue more than available
     std::vector<int> output(10);
-    std::atomic<bool> consumer_done{false};
-    std::atomic<std::size_t> dequeued_count{0};
+    std::atomic<bool> consumer_done { false };
+    std::atomic<std::size_t> dequeued_count { 0 };
 
     std::thread consumer([&queue, &output, &consumer_done, &dequeued_count]() {
-        std::size_t dequeued = queue.dequeue(output.data(), output.size(),
-                                             std::chrono::milliseconds(100));
+        std::size_t dequeued
+            = queue.dequeue(output.data(), output.size(), std::chrono::milliseconds(100));
         dequeued_count.store(dequeued, std::memory_order_release);
         consumer_done.store(true, std::memory_order_release);
     });
@@ -1027,9 +1025,9 @@ void test_bulk_dequeue_timeout_with_partial_data() {
 void test_graceful_shutdown_with_enqueue_timeout() {
     std::cout << "Testing graceful producer shutdown with timeout..." << std::endl;
     SPSC<int, 64> queue;
-    std::atomic<bool> shutdown{false};
+    std::atomic<bool> shutdown { false };
     constexpr int target_elements = 100;
-    std::atomic<int> enqueued_count{0};
+    std::atomic<int> enqueued_count { 0 };
 
     // Producer that respects shutdown signal using timeouts
     std::thread producer([&queue, &shutdown, &enqueued_count]() {
@@ -1066,8 +1064,8 @@ void test_graceful_shutdown_with_enqueue_timeout() {
 void test_graceful_shutdown_with_dequeue_timeout() {
     std::cout << "Testing graceful consumer shutdown with timeout..." << std::endl;
     SPSC<int, 64> queue;
-    std::atomic<bool> shutdown{false};
-    std::atomic<int> dequeued_count{0};
+    std::atomic<bool> shutdown { false };
+    std::atomic<int> dequeued_count { 0 };
 
     // Producer thread
     std::thread producer([&queue, &shutdown]() {
@@ -1110,21 +1108,22 @@ void test_graceful_shutdown_with_dequeue_timeout() {
 void test_graceful_shutdown_with_bulk_operations() {
     std::cout << "Testing graceful shutdown with bulk operations..." << std::endl;
     SPSC<int, 128> queue;
-    std::atomic<bool> producer_shutdown{false};
-    std::atomic<bool> consumer_shutdown{false};
-    std::atomic<int> total_produced{0};
-    std::atomic<int> total_consumed{0};
+    std::atomic<bool> producer_shutdown { false };
+    std::atomic<bool> consumer_shutdown { false };
+    std::atomic<int> total_produced { 0 };
+    std::atomic<int> total_consumed { 0 };
 
     // Producer with bulk operations and timeout-based shutdown checks
     std::thread producer([&queue, &producer_shutdown, &total_produced]() {
-        for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire); ++batch) {
+        for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire);
+            ++batch) {
             std::vector<int> batch_data(10);
             for (int i = 0; i < 10; ++i) {
                 batch_data[i] = batch * 10 + i;
             }
 
-            bool success = queue.enqueue(batch_data.data(), batch_data.size(),
-                                        std::chrono::milliseconds(100));
+            bool success = queue.enqueue(
+                batch_data.data(), batch_data.size(), std::chrono::milliseconds(100));
             if (success) {
                 total_produced.fetch_add(10, std::memory_order_release);
             } else if (!producer_shutdown.load(std::memory_order_acquire)) {
@@ -1138,8 +1137,8 @@ void test_graceful_shutdown_with_bulk_operations() {
     std::thread consumer([&queue, &consumer_shutdown, &total_consumed]() {
         std::vector<int> buffer(20);
         while (!consumer_shutdown.load(std::memory_order_acquire)) {
-            std::size_t dequeued = queue.dequeue(buffer.data(), buffer.size(),
-                                                 std::chrono::milliseconds(100));
+            std::size_t dequeued
+                = queue.dequeue(buffer.data(), buffer.size(), std::chrono::milliseconds(100));
             if (dequeued > 0) {
                 total_consumed.fetch_add(dequeued, std::memory_order_release);
             }
@@ -1148,8 +1147,8 @@ void test_graceful_shutdown_with_bulk_operations() {
         // Final drain before exit
         std::vector<int> final_buffer(50);
         while (true) {
-            std::size_t dequeued = queue.dequeue(final_buffer.data(), final_buffer.size(),
-                                                 std::chrono::milliseconds(10));
+            std::size_t dequeued = queue.dequeue(
+                final_buffer.data(), final_buffer.size(), std::chrono::milliseconds(10));
             if (dequeued == 0) break;
             total_consumed.fetch_add(dequeued, std::memory_order_release);
         }
@@ -1181,8 +1180,8 @@ void test_move_semantics_with_timeout() {
 
     // Fill the queue
     for (int i = 0; i < 7; ++i) {
-        bool enqueued = queue.enqueue(std::string("element") + std::to_string(i),
-                                      std::chrono::seconds(5));
+        bool enqueued
+            = queue.enqueue(std::string("element") + std::to_string(i), std::chrono::seconds(5));
         assert(enqueued);
     }
 
@@ -1206,14 +1205,17 @@ public:
     int id;
     bool is_valid;
 
-    LifecycleTracker(int id = 0) : id(id), is_valid(true) {
+    LifecycleTracker(int id = 0)
+        : id(id)
+        , is_valid(true) {
         instance_count.fetch_add(1, std::memory_order_relaxed);
         active_count.fetch_add(1, std::memory_order_relaxed);
     }
 
     // Copy constructor
     LifecycleTracker(const LifecycleTracker& other)
-        : id(other.id), is_valid(true) {
+        : id(other.id)
+        , is_valid(true) {
         assert(other.is_valid && "Attempting to copy from invalid object");
         instance_count.fetch_add(1, std::memory_order_relaxed);
         active_count.fetch_add(1, std::memory_order_relaxed);
@@ -1221,7 +1223,8 @@ public:
 
     // Move constructor
     LifecycleTracker(LifecycleTracker&& other) noexcept
-        : id(other.id), is_valid(true) {
+        : id(other.id)
+        , is_valid(true) {
         assert(other.is_valid && "Attempting to move from invalid object");
         // Don't mark other as invalid - just transfer ownership
     }
@@ -1251,13 +1254,11 @@ public:
         }
     }
 
-    void verify_valid() const {
-        assert(is_valid && "Object is invalid (use-after-free detected)");
-    }
+    void verify_valid() const { assert(is_valid && "Object is invalid (use-after-free detected)"); }
 };
 
-std::atomic<int> LifecycleTracker::instance_count{0};
-std::atomic<int> LifecycleTracker::active_count{0};
+std::atomic<int> LifecycleTracker::instance_count { 0 };
+std::atomic<int> LifecycleTracker::active_count { 0 };
 
 void test_use_after_free_single_element() {
     std::cout << "Testing use-after-free with single element..." << std::endl;
@@ -1360,7 +1361,7 @@ void test_use_after_free_concurrent() {
         SPSC<LifecycleTracker, 256> queue;
 
         constexpr int num_elements = 100;
-        std::atomic<bool> producer_done{false};
+        std::atomic<bool> producer_done { false };
 
         // Producer thread
         std::thread producer([&queue, &producer_done]() {
@@ -1413,7 +1414,7 @@ void test_use_after_free_copy_semantics() {
         // Enqueue by copy
         {
             LifecycleTracker original(99);
-            bool enqueued = queue.try_enqueue(original);  // Calls const& overload
+            bool enqueued = queue.try_enqueue(original); // Calls const& overload
             assert(enqueued);
 
             // Original should still be valid
@@ -1525,7 +1526,7 @@ void test_producer_handle() {
     assert(producer.size() == 1);
 
     // Test bulk enqueue
-    std::vector<int> batch = {20, 30, 40};
+    std::vector<int> batch = { 20, 30, 40 };
     std::size_t num_enqueued = producer.try_enqueue(batch.data(), batch.size());
     assert(num_enqueued == batch.size());
     assert(producer.size() == 4);
@@ -1577,7 +1578,7 @@ void test_producer_consumer_handles_concurrent() {
     qbuf::ConsumerHandle<int, 256> consumer(queue);
 
     constexpr int num_elements = 100;
-    std::atomic<bool> producer_done{false};
+    std::atomic<bool> producer_done { false };
 
     // Producer thread
     std::thread prod_thread([&producer, &producer_done]() {
@@ -1616,7 +1617,7 @@ void test_producer_handle_bulk_with_strings() {
     SPSC<std::string, 16> queue;
     qbuf::ProducerHandle<std::string, 16> producer(queue);
 
-    std::vector<std::string> input = {"hello", "world", "test"};
+    std::vector<std::string> input = { "hello", "world", "test" };
     std::size_t enqueued = producer.try_enqueue(input.data(), input.size());
     assert(enqueued == input.size());
     assert(producer.size() == 3);

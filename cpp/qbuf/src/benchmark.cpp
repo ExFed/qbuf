@@ -1,16 +1,17 @@
-#include <qbuf/spsc.hpp>
-#include <iostream>
-#include <vector>
 #include <chrono>
-#include <thread>
 #include <iomanip>
+#include <iostream>
+#include <qbuf/spsc.hpp>
+#include <thread>
+#include <vector>
 
 using namespace qbuf;
 
 // Simple timer class
 class Timer {
 public:
-    Timer() : start_(std::chrono::high_resolution_clock::now()) {}
+    Timer()
+        : start_(std::chrono::high_resolution_clock::now()) { }
 
     double elapsed_ms() const {
         auto end = std::chrono::high_resolution_clock::now();
@@ -29,7 +30,7 @@ private:
 };
 
 // Benchmark: Individual enqueue/dequeue operations
-template<std::size_t Capacity>
+template <std::size_t Capacity>
 void benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
@@ -74,7 +75,7 @@ void benchmark_individual_ops(int iterations, int batch_size) {
 }
 
 // Benchmark: Bulk enqueue/dequeue operations
-template<std::size_t Capacity>
+template <std::size_t Capacity>
 void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
@@ -91,8 +92,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
             }
             std::size_t enqueued = 0;
             while (enqueued < batch_size) {
-                enqueued += queue.try_enqueue(batch.data() + enqueued,
-                                                     batch_size - enqueued);
+                enqueued += queue.try_enqueue(batch.data() + enqueued, batch_size - enqueued);
                 if (enqueued < batch_size) {
                     std::this_thread::yield();
                 }
@@ -132,11 +132,11 @@ void benchmark_comparison() {
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
 
     std::vector<std::pair<int, int>> configs = {
-        {100000, 1},    // Many individual ops
-        {10000, 10},    // Small batches
-        {5000, 20},     // Medium batches
-        {1000, 100},    // Large batches
-        {500, 200},     // Very large batches
+        { 100000, 1 }, // Many individual ops
+        { 10000, 10 }, // Small batches
+        { 5000, 20 }, // Medium batches
+        { 1000, 100 }, // Large batches
+        { 500, 200 }, // Very large batches
     };
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
@@ -146,7 +146,8 @@ void benchmark_comparison() {
 
     for (const auto& [iterations, batch_size] : configs) {
         std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
-        std::cout << "Configuration: " << iterations << " iterations * " << batch_size << " batch size" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size
+                  << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
         benchmark_individual_ops<64>(iterations, batch_size);
@@ -160,7 +161,8 @@ void benchmark_comparison() {
 
     for (const auto& [iterations, batch_size] : configs) {
         std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
-        std::cout << "Configuration: " << iterations << " iterations * " << batch_size << " batch size" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size
+                  << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
         benchmark_individual_ops<4096>(iterations, batch_size);
