@@ -28,6 +28,13 @@ public:
         : head_(0)
         , tail_(0) { }
 
+    // non-copyable
+    SPSC(const SPSC&) = delete;
+    SPSC& operator=(const SPSC&) = delete;
+    // non-movable
+    SPSC(SPSC&&) = delete;
+    SPSC& operator=(SPSC&&) = delete;
+
     /**
      * @brief Try to enqueue a single element
      *
@@ -389,6 +396,13 @@ public:
     ProducerHandle(SPSC<T, Capacity>& queue)
         : queue_(queue) { }
 
+    // Non-copyable. Move constructible (reference is re-bound to the same queue)
+    ProducerHandle(const ProducerHandle&) = delete;
+    ProducerHandle& operator=(const ProducerHandle&) = delete;
+    ProducerHandle(ProducerHandle&&) = default;
+    // Not move-assignable due to reference member
+    ProducerHandle& operator=(ProducerHandle&&) = delete;
+
     /**
      * @brief Try to enqueue a single element
      *
@@ -491,6 +505,13 @@ class ConsumerHandle {
 public:
     ConsumerHandle(SPSC<T, Capacity>& queue)
         : queue_(queue) { }
+
+    // Non-copyable. Move constructible (reference is re-bound to the same queue)
+    ConsumerHandle(const ConsumerHandle&) = delete;
+    ConsumerHandle& operator=(const ConsumerHandle&) = delete;
+    ConsumerHandle(ConsumerHandle&&) = default;
+    // Not move-assignable due to reference member
+    ConsumerHandle& operator=(ConsumerHandle&&) = delete;
 
     /**
      * @brief Try to dequeue a single element

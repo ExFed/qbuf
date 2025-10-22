@@ -1,7 +1,6 @@
 #include "test_spsc.hpp"
 
 #include <iostream>
-#include <stdexcept>
 
 int main() {
     std::cout << "\n=== Running SPSC Tests ===" << std::endl;
