@@ -35,7 +35,7 @@
 - [x] Define the networking approach enabling SSH remoting from host into the VM.
   - **Approach**: QEMU user-mode networking with port forwarding
   - **Details**: Forward host port 10022 to VM port 22 for SSH access
-  - **Command pattern**: `qemu-system-x86_64 ... -net user,hostfwd=tcp::10022-:22 -net nic`
+  - **Command pattern**: `-nic user,model=virtio-net-pci,hostfwd=tcp::10022-:22`
 
 - [x] Establish the convention for persistent project source sharing (e.g., 9p/shared folder vs. cloning inside the VM).
   - **Approach**: 9p virtfs shared folder

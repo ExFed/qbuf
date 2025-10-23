@@ -96,6 +96,8 @@ The VM configuration (`dev-vm.scm`):
 - **Default user**: `dev` (password: `dev`)
 - **Sudo**: Enabled for `wheel` group (no password required)
 - **SSH**: Enabled on port 22 (forwarded to host port 10022)
+  - Password authentication enabled by default
+  - Optional: Add your SSH public key by editing `dev-vm.scm` (looks for `~/.ssh/id_rsa.pub`)
 - **Resources**: 2GB RAM, 2 CPUs (configurable in `run-qbuf-vm.sh`)
 
 ## Accessing the VM

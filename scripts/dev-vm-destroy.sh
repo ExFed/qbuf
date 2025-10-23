@@ -24,7 +24,12 @@ error() {
 info "Looking for running QEMU VM processes..."
 
 # Find QEMU processes related to our VM
-QEMU_PIDS=$(pgrep -f "qemu-system.*dev-vm" || true)
+# Use pgrep if available, otherwise fall back to ps + grep
+if command -v pgrep &> /dev/null; then
+    QEMU_PIDS=$(pgrep -f "qemu-system.*dev-vm" || true)
+else
+    QEMU_PIDS=$(ps aux | grep "qemu-system.*dev-vm" | grep -v grep | awk '{print $2}' || true)
+fi
 
 if [ -z "$QEMU_PIDS" ]; then
     info "No running qbuf VM found."
@@ -43,7 +48,11 @@ done
 TIMEOUT=10
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
-    REMAINING=$(pgrep -f "qemu-system.*dev-vm" || true)
+    if command -v pgrep &> /dev/null; then
+        REMAINING=$(pgrep -f "qemu-system.*dev-vm" || true)
+    else
+        REMAINING=$(ps aux | grep "qemu-system.*dev-vm" | grep -v grep | awk '{print $2}' || true)
+    fi
     if [ -z "$REMAINING" ]; then
         info "VM shut down successfully."
         exit 0
@@ -61,7 +70,12 @@ done
 sleep 1
 
 # Check if any processes remain
-REMAINING=$(pgrep -f "qemu-system.*dev-vm" || true)
+if command -v pgrep &> /dev/null; then
+    REMAINING=$(pgrep -f "qemu-system.*dev-vm" || true)
+else
+    REMAINING=$(ps aux | grep "qemu-system.*dev-vm" | grep -v grep | awk '{print $2}' || true)
+fi
+
 if [ -z "$REMAINING" ]; then
     info "VM terminated."
 else

@@ -100,6 +100,8 @@ root ALL=(ALL) ALL
                             (port-number 22)
                             (permit-root-login #t)
                             (password-authentication? #t)
+                            ;; Optional: Import SSH public key if available
+                            ;; Edit this to add your own key or leave as-is for password auth
                             (authorized-keys
                              `(("dev" ,(local-file "~/.ssh/id_rsa.pub"
                                                   #:optional? #t))))))
