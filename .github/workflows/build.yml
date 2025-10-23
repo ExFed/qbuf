@@ -9,27 +9,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+    - name: Guix cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/guix
+        # use a key that (almost) never matches
+        key: guix-cache-${{ github.sha }}
+        restore-keys: |
+          guix-cache-
+      # Cannot use a cache for /gnu/store, since restore fails
 
     - name: Install Guix
-      id: guix-install
-      run: |
-        set -euo pipefail
-        sudo apt-get update
-        sudo apt-get install -y guix
-        sudo systemctl start guix-daemon || true
+      uses: PromyLOPh/guix-install-action@v1
 
-    - name: Check Guix is available
-      run: guix --version
+    - name: Ensure no locale warning
+      run: test -z "$(guix --version 2>&1 >/dev/null)"
 
     - name: Install Dev Environment
       working-directory: cpp/qbuf
       run: |
         set -euo pipefail
-        guix pull
-        guix package -u
+        guix pull -C channels.scm
         guix package -m manifest.scm
 
     - name: Check C++ code formatting
