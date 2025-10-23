@@ -31,6 +31,8 @@ jobs:
       working-directory: cpp/qbuf
       run: |
         set -euo pipefail
+        guix pull
+        guix package -u
         guix package -m manifest.scm
 
     - name: Check C++ code formatting
