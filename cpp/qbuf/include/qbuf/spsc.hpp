@@ -1,4 +1,5 @@
-#pragma once
+#ifndef QBUF_SPSC_HPP
+#define QBUF_SPSC_HPP
 
 #include <array>
 #include <atomic>
@@ -576,3 +577,4 @@ private:
 };
 
 } // namespace qbuf
+#endif // QBUF_SPSC_HPP
