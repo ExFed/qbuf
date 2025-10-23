@@ -17,3 +17,6 @@ BraceWrapping:
 
 BreakTemplateDeclarations: true
 IncludeBlocks: Regroup
+
+KeepEmptyLines:
+  AtStartOfFile: false
