@@ -26,6 +26,9 @@ jobs:
     - name: Ensure no locale warning
       run: test -z "$(guix --version 2>&1 >/dev/null)"
 
+    - name: Checkout project
+      uses: actions/checkout@v4
+
     - name: Install Dev Environment
       working-directory: cpp/qbuf
       run: |
