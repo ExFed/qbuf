@@ -10,6 +10,10 @@
 - Agents must run the formatter on any files they modify or create to ensure consistency with the project's code style.
 - This is non-negotiable: unformatted code submissions will be rejected.
 
+## Development Policies
+
+- If there is need for temporary files or scripts, put them in the `temp` directory for easy cleanup later.
+
 ## Project Map
 
 - `include/qbuf/spsc.hpp` is the header-only library for a single-producer single-consumer queue, `SPSC`, exported via the CMake `qbuf` INTERFACE target.
