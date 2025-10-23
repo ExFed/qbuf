@@ -23,12 +23,14 @@ error() {
 
 info "Looking for running QEMU VM processes..."
 
-# Find QEMU processes related to our VM
+# Find QEMU processes related to our VM using a specific pattern
+# We look for processes with both 'qemu-system' and the VM script path
 # Use pgrep if available, otherwise fall back to ps + grep
 if command -v pgrep &> /dev/null; then
-    QEMU_PIDS=$(pgrep -f "qemu-system.*dev-vm" || true)
+    QEMU_PIDS=$(pgrep -f "qemu-system-x86_64.*run-vm.*dev-vm.scm" || true)
 else
-    QEMU_PIDS=$(ps aux | grep "qemu-system.*dev-vm" | grep -v grep | awk '{print $2}' || true)
+    # More specific grep pattern to avoid false matches
+    QEMU_PIDS=$(ps aux | grep -E "qemu-system-x86_64.*run-vm.*dev-vm\.scm" | grep -v grep | awk '{print $2}' || true)
 fi
 
 if [ -z "$QEMU_PIDS" ]; then
@@ -49,9 +51,9 @@ TIMEOUT=10
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
     if command -v pgrep &> /dev/null; then
-        REMAINING=$(pgrep -f "qemu-system.*dev-vm" || true)
+        REMAINING=$(pgrep -f "qemu-system-x86_64.*run-vm.*dev-vm.scm" || true)
     else
-        REMAINING=$(ps aux | grep "qemu-system.*dev-vm" | grep -v grep | awk '{print $2}' || true)
+        REMAINING=$(ps aux | grep -E "qemu-system-x86_64.*run-vm.*dev-vm\.scm" | grep -v grep | awk '{print $2}' || true)
     fi
     if [ -z "$REMAINING" ]; then
         info "VM shut down successfully."
@@ -71,9 +73,9 @@ sleep 1
 
 # Check if any processes remain
 if command -v pgrep &> /dev/null; then
-    REMAINING=$(pgrep -f "qemu-system.*dev-vm" || true)
+    REMAINING=$(pgrep -f "qemu-system-x86_64.*run-vm.*dev-vm.scm" || true)
 else
-    REMAINING=$(ps aux | grep "qemu-system.*dev-vm" | grep -v grep | awk '{print $2}' || true)
+    REMAINING=$(ps aux | grep -E "qemu-system-x86_64.*run-vm.*dev-vm\.scm" | grep -v grep | awk '{print $2}' || true)
 fi
 
 if [ -z "$REMAINING" ]; then
