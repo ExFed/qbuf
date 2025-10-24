@@ -139,7 +139,7 @@ void test_concurrent() {
     std::atomic<bool> producer_done { false };
 
     // Producer thread
-    std::thread producer([&queue_sink, &queue_source, &producer_done]() {
+    std::thread producer([&queue_sink, &producer_done]() {
         for (int i = 0; i < num_elements; ++i) {
             while (!queue_sink.try_enqueue(i)) {
                 std::this_thread::yield();
@@ -150,7 +150,7 @@ void test_concurrent() {
 
     // Consumer thread
     std::vector<int> consumed;
-    std::thread consumer([&queue_sink, &queue_source, &consumed, &producer_done]() {
+    std::thread consumer([&queue_source, &consumed, &producer_done]() {
         int count = 0;
         while (count < num_elements) {
             auto value = queue_source.try_dequeue();
@@ -369,7 +369,7 @@ void test_bulk_concurrent() {
     std::atomic<bool> producer_done { false };
 
     // Producer: enqueue in batches
-    std::thread producer([&queue_sink, &queue_source, &producer_done]() {
+    std::thread producer([&queue_sink, &producer_done]() {
         for (int b = 0; b < num_batches; ++b) {
             std::vector<int> batch(batch_size);
             for (int i = 0; i < batch_size; ++i) {
@@ -388,7 +388,7 @@ void test_bulk_concurrent() {
 
     // Consumer: dequeue in batches
     std::vector<int> consumed;
-    std::thread consumer([&queue_sink, &queue_source, &consumed, &producer_done]() {
+    std::thread consumer([&queue_source, &consumed, &producer_done]() {
         std::vector<int> buffer(batch_size);
         int total = 0;
         while (total < total_elements) {
@@ -431,7 +431,7 @@ void test_blocking_enqueue() {
 
     // Producer thread tries to enqueue (will block until consumer makes space)
     std::atomic<bool> producer_done { false };
-    std::thread producer([&queue_sink, &queue_source, &producer_done]() {
+    std::thread producer([&queue_sink, &producer_done]() {
         affirm(queue_sink.enqueue(99, std::chrono::seconds(5)));
         producer_done.store(true, std::memory_order_release);
     });
@@ -462,7 +462,7 @@ void test_blocking_dequeue() {
     std::atomic<bool> consumer_done { false };
 
     // Consumer thread tries to dequeue from empty queue (will block)
-    std::thread consumer([&queue_sink, &queue_source, &dequeued_value, &consumer_done]() {
+    std::thread consumer([&queue_source, &dequeued_value, &consumer_done]() {
         auto value = queue_source.dequeue(std::chrono::seconds(5));
         if (value.has_value()) {
             dequeued_value.store(value.value(), std::memory_order_release);
@@ -494,7 +494,7 @@ void test_blocking_concurrent() {
     constexpr int num_elements = 1000;
 
     // Producer thread
-    std::thread producer([&queue_sink, &queue_source]() {
+    std::thread producer([&queue_sink]() {
         for (int i = 0; i < num_elements; ++i) {
             affirm(queue_sink.enqueue(i, std::chrono::seconds(5)));
         }
@@ -502,7 +502,7 @@ void test_blocking_concurrent() {
 
     // Consumer thread
     std::vector<int> consumed;
-    std::thread consumer([&queue_sink, &queue_source, &consumed]() {
+    std::thread consumer([&queue_source, &consumed]() {
         for (int i = 0; i < num_elements; ++i) {
             auto value = queue_source.dequeue(std::chrono::seconds(5));
             affirm(value.has_value());
@@ -533,7 +533,7 @@ void test_blocking_with_strings() {
     std::atomic<bool> done { false };
 
     // Consumer thread dequeues (will block initially)
-    std::thread consumer([&queue_sink, &queue_source, &result, &done]() {
+    std::thread consumer([&queue_source, &result, &done]() {
         auto value = queue_source.dequeue(std::chrono::seconds(5));
         if (value.has_value()) {
             result = value.value();
@@ -564,14 +564,14 @@ void test_blocking_stress() {
     std::atomic<int> consumed_count { 0 };
 
     // Producer: continuously enqueue
-    std::thread producer([&queue_sink, &queue_source]() {
+    std::thread producer([&queue_sink]() {
         for (int i = 0; i < total_ops; ++i) {
             affirm(queue_sink.enqueue(i, std::chrono::seconds(5)));
         }
     });
 
     // Consumer: continuously dequeue
-    std::thread consumer([&queue_sink, &queue_source, &consumed_count]() {
+    std::thread consumer([&queue_source, &consumed_count]() {
         for (int i = 0; i < total_ops; ++i) {
             auto value = queue_source.dequeue(std::chrono::seconds(5));
             affirm(value.has_value());
@@ -607,7 +607,7 @@ void test_blocking_bulk_enqueue() {
     }
 
     std::atomic<bool> producer_done { false };
-    std::thread producer([&queue_sink, &queue_source, &large_batch, &producer_done]() {
+    std::thread producer([&queue_sink, &large_batch, &producer_done]() {
         affirm(queue_sink.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(5)));
         producer_done.store(true, std::memory_order_release);
     });
@@ -653,7 +653,7 @@ void test_blocking_bulk_dequeue() {
     std::atomic<bool> consumer_done { false };
 
     // Consumer thread tries to dequeue 50 elements (will block)
-    std::thread consumer([&queue_sink, &queue_source, &output, &consumer_done]() {
+    std::thread consumer([&queue_source, &output, &consumer_done]() {
         affirm(queue_source.dequeue(output.data(), 50, std::chrono::seconds(5)) == 50);
         consumer_done.store(true, std::memory_order_release);
     });
@@ -696,7 +696,7 @@ void test_blocking_bulk_concurrent() {
     constexpr int total_elements = num_batches * batch_size;
 
     // Producer: enqueue in batches using blocking API
-    std::thread producer([&queue_sink, &queue_source]() {
+    std::thread producer([&queue_sink]() {
         for (int b = 0; b < num_batches; ++b) {
             std::vector<int> batch(batch_size);
             for (int i = 0; i < batch_size; ++i) {
@@ -708,7 +708,7 @@ void test_blocking_bulk_concurrent() {
 
     // Consumer: dequeue in batches using blocking API
     std::vector<int> consumed;
-    std::thread consumer([&queue_sink, &queue_source, &consumed, total_elements]() {
+    std::thread consumer([&queue_source, &consumed, total_elements]() {
         std::vector<int> batch(batch_size);
         int total_dequeued = 0;
         while (total_dequeued < total_elements) {
@@ -795,12 +795,12 @@ void test_blocking_bulk_with_strings() {
     std::vector<std::string> output(input.size());
 
     // Producer: enqueue all with blocking bulk
-    std::thread producer([&queue_sink, &queue_source, &input]() {
+    std::thread producer([&queue_sink, &input]() {
         affirm(queue_sink.enqueue(input.data(), input.size(), std::chrono::seconds(5)));
     });
 
     // Consumer: dequeue all with blocking bulk
-    std::thread consumer([&queue_sink, &queue_source, &output]() {
+    std::thread consumer([&queue_source, &output]() {
         affirm(
             queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5)) == output.size());
     });
@@ -852,7 +852,7 @@ void test_enqueue_timeout_with_space() {
     // Producer thread tries to enqueue with timeout
     std::atomic<bool> producer_done { false };
     std::atomic<bool> producer_success { false };
-    std::thread producer([&queue_sink, &queue_source, &producer_done, &producer_success]() {
+    std::thread producer([&queue_sink, &producer_done, &producer_success]() {
         producer_success.store(
             queue_sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release);
         producer_done.store(true, std::memory_order_release);
@@ -898,7 +898,7 @@ void test_dequeue_timeout_with_data() {
     // Consumer thread tries to dequeue with timeout
     std::atomic<bool> consumer_done { false };
     std::atomic<int> dequeued_value { -1 };
-    std::thread consumer([&queue_sink, &queue_source, &consumer_done, &dequeued_value]() {
+    std::thread consumer([&queue_source, &consumer_done, &dequeued_value]() {
         auto value = queue_source.dequeue(std::chrono::seconds(2));
         if (value.has_value()) {
             dequeued_value.store(value.value(), std::memory_order_release);
@@ -957,7 +957,7 @@ void test_bulk_enqueue_timeout_with_space() {
 
     std::atomic<bool> producer_done { false };
     std::atomic<bool> producer_success { false };
-    std::thread producer([&queue_sink, &queue_source, &large_batch, &producer_done, &producer_success]() {
+    std::thread producer([&queue_sink, &large_batch, &producer_done, &producer_success]() {
         producer_success.store(
             queue_sink.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(2)),
             std::memory_order_release);
@@ -1014,7 +1014,7 @@ void test_bulk_dequeue_timeout_with_partial_data() {
     std::atomic<bool> consumer_done { false };
     std::atomic<std::size_t> dequeued_count { 0 };
 
-    std::thread consumer([&queue_sink, &queue_source, &output, &consumer_done, &dequeued_count]() {
+    std::thread consumer([&queue_source, &output, &consumer_done, &dequeued_count]() {
         std::size_t dequeued
             = queue_source.dequeue(output.data(), output.size(), std::chrono::milliseconds(100));
         dequeued_count.store(dequeued, std::memory_order_release);
@@ -1038,7 +1038,7 @@ void test_graceful_shutdown_with_enqueue_timeout() {
     std::atomic<int> enqueued_count { 0 };
 
     // Producer that respects shutdown signal using timeouts
-    std::thread producer([&queue_sink, &queue_source, &shutdown, &enqueued_count]() {
+    std::thread producer([&queue_sink, &shutdown, &enqueued_count]() {
         for (int i = 0; i < target_elements; ++i) {
             // Try to enqueue with a timeout that allows periodic shutdown checks
             bool success = queue_sink.enqueue(i, std::chrono::milliseconds(50));
@@ -1078,7 +1078,7 @@ void test_graceful_shutdown_with_dequeue_timeout() {
     std::atomic<int> dequeued_count { 0 };
 
     // Producer thread
-    std::thread producer([&queue_sink, &queue_source, &shutdown]() {
+    std::thread producer([&queue_sink, &shutdown]() {
         for (int i = 0; i < 50; ++i) {
             affirm(queue_sink.enqueue(i, std::chrono::seconds(5)));
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -1086,7 +1086,7 @@ void test_graceful_shutdown_with_dequeue_timeout() {
     });
 
     // Consumer that respects shutdown signal using timeouts
-    std::thread consumer([&queue_sink, &queue_source, &shutdown, &dequeued_count]() {
+    std::thread consumer([&queue_source, &shutdown, &dequeued_count]() {
         while (!shutdown.load(std::memory_order_acquire)) {
             // Try to dequeue with a timeout that allows shutdown checks
             auto value = queue_source.dequeue(std::chrono::milliseconds(50));
@@ -1145,7 +1145,7 @@ void test_graceful_shutdown_with_bulk_operations() {
     });
 
     // Consumer with bulk operations and timeout-based shutdown checks
-    std::thread consumer([&queue_sink, &queue_source, &consumer_shutdown, &total_consumed]() {
+    std::thread consumer([&queue_source, &consumer_shutdown, &total_consumed]() {
         std::vector<int> buffer(20);
         while (!consumer_shutdown.load(std::memory_order_acquire)) {
             std::size_t dequeued
@@ -1381,7 +1381,7 @@ void test_use_after_free_concurrent() {
         std::atomic<bool> producer_done { false };
 
         // Producer thread
-        std::thread producer([&queue_sink, &queue_source, &producer_done]() {
+        std::thread producer([&queue_sink, &producer_done]() {
             for (int i = 0; i < num_elements; ++i) {
                 LifecycleTracker obj(i);
                 while (!queue_sink.try_enqueue(std::move(obj))) {
@@ -1393,7 +1393,7 @@ void test_use_after_free_concurrent() {
 
         // Consumer thread
         std::vector<int> consumed_ids;
-        std::thread consumer([&queue_sink, &queue_source, &consumed_ids, &producer_done]() {
+        std::thread consumer([&queue_source, &consumed_ids, &producer_done]() {
             int count = 0;
             while (count < num_elements) {
                 auto value = queue_source.try_dequeue();
@@ -1503,7 +1503,7 @@ void test_use_after_free_blocking_operations() {
         SpscSource<LifecycleTracker, 16> queue_source(queue);
 
         // Producer thread with blocking enqueue
-        std::thread producer([&queue_sink, &queue_source]() {
+        std::thread producer([&queue_sink]() {
             for (int i = 0; i < 20; ++i) {
                 LifecycleTracker obj(i);
                 affirm(queue_sink.enqueue(std::move(obj), std::chrono::seconds(5)));
@@ -1512,7 +1512,7 @@ void test_use_after_free_blocking_operations() {
 
         // Consumer thread with blocking dequeue
         std::vector<int> consumed_ids;
-        std::thread consumer([&queue_sink, &queue_source, &consumed_ids]() {
+        std::thread consumer([&queue_source, &consumed_ids]() {
             for (int i = 0; i < 20; ++i) {
                 auto value = queue_source.dequeue(std::chrono::seconds(5));
                 affirm(value.has_value());
