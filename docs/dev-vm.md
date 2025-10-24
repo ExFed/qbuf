@@ -54,9 +54,9 @@ The fastest way to get started:
 ./scripts/dev-vm-ssh.sh
 
 # 4. Inside the VM, mount the shared folder and build qbuf
-sudo mkdir -p /mnt/qbuf
-sudo mount -t 9p -o trans=virtio qbuf_share /mnt/qbuf
-cd /mnt/qbuf/cpp/qbuf
+sudo mkdir -p /mnt/workspace
+sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
+cd /mnt/workspace/cpp/qbuf
 cmake -S . -B build --fresh
 cmake --build build
 ctest --output-on-failure --test-dir build
@@ -137,13 +137,13 @@ After logging in for the first time:
 
 1. **Mount the shared folder**:
    ```bash
-   sudo mkdir -p /mnt/qbuf
-   sudo mount -t 9p -o trans=virtio qbuf_share /mnt/qbuf
+   sudo mkdir -p /mnt/workspace
+   sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
    ```
 
 2. **Verify the mount**:
    ```bash
-   ls -la /mnt/qbuf
+   ls -la /mnt/workspace
    # You should see the repository files
    ```
 
@@ -157,7 +157,7 @@ After logging in for the first time:
 Once you've mounted the shared folder:
 
 ```bash
-cd /mnt/qbuf/cpp/qbuf
+cd /mnt/workspace/cpp/qbuf
 
 # Configure (first time or after cleaning)
 cmake -S . -B build --fresh
@@ -190,7 +190,7 @@ You have two options:
 For development with the exact manifest environment:
 
 ```bash
-cd /mnt/qbuf/cpp/qbuf
+cd /mnt/workspace/cpp/qbuf
 guix shell -m manifest.scm
 # Now you're in a pure environment matching the manifest
 ```
@@ -294,12 +294,12 @@ To use different channel versions:
 
 ### Shared Folder Not Working
 
-**Problem**: Cannot see repository files in `/mnt/qbuf`
+**Problem**: Cannot see repository files in `/mnt/workspace`
 
 **Solutions**:
 - Ensure you mounted the 9p filesystem:
   ```bash
-  sudo mount -t 9p -o trans=virtio qbuf_share /mnt/qbuf
+  sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
   ```
 - Check if the mount tag matches: `dmesg | grep 9p`
 - Verify the share path in `run-qbuf-vm.sh`
@@ -309,7 +309,7 @@ To use different channel versions:
 **Problem**: CMake or compilation fails
 
 **Solutions**:
-- Ensure you're building from the shared mount: `cd /mnt/qbuf/cpp/qbuf`
+- Ensure you're building from the shared mount: `cd /mnt/workspace/cpp/qbuf`
 - Check if packages are available: `which gcc`, `which cmake`
 - Try in a clean Guix shell: `guix shell -m manifest.scm`
 - Verify file permissions on shared folder

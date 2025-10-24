@@ -68,7 +68,7 @@ cat > "$WRAPPER_SCRIPT" << EOF
 set -euo pipefail
 
 # Port forwarding: Host 10022 -> VM 22 (SSH)
-# Shared folder: Current directory -> VM /mnt/qbuf
+# Shared folder: Current directory -> VM /mnt/workspace
 # Memory: 2GB
 # CPUs: 2
 
@@ -79,7 +79,7 @@ SHARE_PATH="\$(pwd)"
 
 echo "Starting qbuf development VM..."
 echo "  SSH: localhost:\$SSH_PORT (user: dev, password: dev)"
-echo "  Shared folder: \$SHARE_PATH -> /mnt/qbuf"
+echo "  Shared folder: \$SHARE_PATH -> /mnt/workspace"
 echo "  Memory: \$MEMORY, CPUs: \$CPUS"
 echo ""
 echo "To connect: ssh -p \$SSH_PORT dev@localhost"
@@ -106,6 +106,6 @@ info "The VM will be accessible via SSH at:"
 info "  ssh -p 10022 dev@localhost"
 info "  (default password: 'dev')"
 info ""
-info "Your repository will be available in the VM at: /mnt/qbuf"
+info "Your repository will be available in the VM at: /mnt/workspace"
 info ""
 info "See docs/dev-vm.md for more details."

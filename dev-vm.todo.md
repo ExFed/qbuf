@@ -44,7 +44,7 @@
     - Changes are immediately visible in both environments
     - No sync/copy overhead
     - Consistent with typical VM development workflows
-  - **Mount point**: Host repository mounted at `/mnt/qbuf` in VM
+  - **Mount point**: Host repository mounted at `/mnt/workspace` in VM
   - **Alternative**: Users can also clone inside VM for fully isolated workflow
 
 - [x] Specify the documentation structure/location (e.g., `docs/dev-vm.md`).
