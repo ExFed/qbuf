@@ -15,8 +15,5 @@ BraceWrapping:
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
 
-BreakTemplateDeclarations: true
+AlwaysBreakTemplateDeclarations: Yes
 IncludeBlocks: Regroup
-
-KeepEmptyLines:
-  AtStartOfFile: false

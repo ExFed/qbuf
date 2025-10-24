@@ -714,7 +714,8 @@ void test_blocking_bulk_concurrent() {
         while (total_dequeued < total_elements) {
             int remaining = total_elements - total_dequeued;
             int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
-            affirm(queue_source.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5)) == to_dequeue);
+            affirm(queue_source.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5))
+                == to_dequeue);
             for (int i = 0; i < to_dequeue; ++i) {
                 consumed.push_back(batch[i]);
             }
@@ -801,8 +802,8 @@ void test_blocking_bulk_with_strings() {
 
     // Consumer: dequeue all with blocking bulk
     std::thread consumer([&queue_source, &output]() {
-        affirm(
-            queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5)) == output.size());
+        affirm(queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5))
+            == output.size());
     });
 
     producer.join();
@@ -1127,7 +1128,7 @@ void test_graceful_shutdown_with_bulk_operations() {
     // Producer with bulk operations and timeout-based shutdown checks
     std::thread producer([&queue_sink, &producer_shutdown, &total_produced]() {
         for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire);
-            ++batch) {
+             ++batch) {
             std::vector<int> batch_data(10);
             for (int i = 0; i < 10; ++i) {
                 batch_data[i] = batch * 10 + i;
@@ -1148,8 +1149,8 @@ void test_graceful_shutdown_with_bulk_operations() {
     std::thread consumer([&queue_source, &consumer_shutdown, &total_consumed]() {
         std::vector<int> buffer(20);
         while (!consumer_shutdown.load(std::memory_order_acquire)) {
-            std::size_t dequeued
-                = queue_source.dequeue(buffer.data(), buffer.size(), std::chrono::milliseconds(100));
+            std::size_t dequeued = queue_source.dequeue(
+                buffer.data(), buffer.size(), std::chrono::milliseconds(100));
             if (dequeued > 0) {
                 total_consumed.fetch_add(dequeued, std::memory_order_release);
             }
@@ -1193,8 +1194,8 @@ void test_move_semantics_with_timeout() {
 
     // Fill the queue
     for (int i = 0; i < 7; ++i) {
-        bool enqueued
-            = queue_sink.enqueue(std::string("element") + std::to_string(i), std::chrono::seconds(5));
+        bool enqueued = queue_sink.enqueue(
+            std::string("element") + std::to_string(i), std::chrono::seconds(5));
         affirm(enqueued);
     }
 
