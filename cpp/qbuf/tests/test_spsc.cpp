@@ -1125,7 +1125,7 @@ void test_graceful_shutdown_with_bulk_operations() {
     std::atomic<int> total_consumed { 0 };
 
     // Producer with bulk operations and timeout-based shutdown checks
-    std::thread producer([&queue_sink, &queue_source, &producer_shutdown, &total_produced]() {
+    std::thread producer([&queue_sink, &producer_shutdown, &total_produced]() {
         for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire);
             ++batch) {
             std::vector<int> batch_data(10);
