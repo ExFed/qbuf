@@ -1,5 +1,6 @@
+#include "affirm.hpp"
+
 #include <atomic>
-#include <cassert>
 #include <iostream>
 #include <qbuf/spsc.hpp>
 #include <string>
@@ -13,43 +14,39 @@ void test_basic_operations() {
     SPSC<int, 8> queue;
 
     // Test empty queue
-    assert(queue.empty());
-    assert(queue.size() == 0);
+    affirm(queue.empty());
+    affirm(queue.size() == 0);
 
     // Test push and pop single element
-    bool enqueued = queue.try_enqueue(42);
-    assert(enqueued);
-    assert(!queue.empty());
-    assert(queue.size() == 1);
+    affirm(queue.try_enqueue(42));
+    affirm(!queue.empty());
+    affirm(queue.size() == 1);
 
     auto value = queue.try_dequeue();
-    assert(value.has_value());
-    assert(value.value() == 42);
-    assert(queue.empty());
+    affirm(value.has_value());
+    affirm(value.value() == 42);
+    affirm(queue.empty());
 
     // Test pop from empty queue
     value = queue.try_dequeue();
-    assert(!value.has_value());
+    affirm(!value.has_value());
 
     // Test push multiple elements
-    bool ok1 = queue.try_enqueue(1);
-    bool ok2 = queue.try_enqueue(2);
-    bool ok3 = queue.try_enqueue(3);
-    assert(ok1);
-    assert(ok2);
-    assert(ok3);
-    assert(queue.size() == 3);
+    affirm(queue.try_enqueue(1));
+    affirm(queue.try_enqueue(2));
+    affirm(queue.try_enqueue(3));
+    affirm(queue.size() == 3);
 
     auto val1 = queue.try_dequeue();
-    assert(val1.has_value());
-    assert(val1.value() == 1);
+    affirm(val1.has_value());
+    affirm(val1.value() == 1);
     auto val2 = queue.try_dequeue();
-    assert(val2.has_value());
-    assert(val2.value() == 2);
+    affirm(val2.has_value());
+    affirm(val2.value() == 2);
     auto val3 = queue.try_dequeue();
-    assert(val3.has_value());
-    assert(val3.value() == 3);
-    assert(queue.empty());
+    affirm(val3.has_value());
+    affirm(val3.value() == 3);
+    affirm(queue.empty());
 
     std::cout << "  PASSED: basic operations" << std::endl;
 }
@@ -60,13 +57,11 @@ void test_queue_full() {
 
     // Capacity is 8, but we can only store 7 elements (one slot reserved)
     for (int i = 0; i < 7; ++i) {
-        bool enqueued = queue.try_enqueue(i);
-        assert(enqueued);
+        affirm(queue.try_enqueue(i));
     }
 
     // Next push should fail
-    bool should_fail = queue.try_enqueue(999);
-    assert(!should_fail);
+    affirm(!queue.try_enqueue(999));
 
     std::cout << "  PASSED: queue full" << std::endl;
 }
@@ -79,21 +74,20 @@ void test_fifo_ordering() {
     std::vector<int> output;
 
     for (int val : input) {
-        bool enqueued = queue.try_enqueue(val);
-        assert(enqueued);
+        affirm(queue.try_enqueue(val));
     }
 
     for (int expected : input) {
         auto value = queue.try_dequeue();
-        assert(value.has_value());
-        assert(value.value() == expected);
+        affirm(value.has_value());
+        affirm(value.value() == expected);
         output.push_back(value.value());
     }
 
     // Verify inputs produced match outputs consumed in same order
-    assert(input.size() == output.size());
+    affirm(input.size() == output.size());
     for (std::size_t i = 0; i < input.size(); ++i) {
-        assert(input[i] == output[i]);
+        affirm(input[i] == output[i]);
     }
 
     std::cout << "  PASSED: FIFO ordering" << std::endl;
@@ -104,30 +98,26 @@ void test_move_semantics() {
     SPSC<std::string, 8> queue;
 
     std::string str = "Hello, World!";
-    bool enqueued = queue.try_enqueue(std::move(str));
-    assert(enqueued);
+    affirm(queue.try_enqueue(std::move(str)));
 
     auto value = queue.try_dequeue();
-    assert(value.has_value());
-    assert(value.value() == "Hello, World!");
+    affirm(value.has_value());
+    affirm(value.value() == "Hello, World!");
 
     // Multiple string operations
-    bool ok1 = queue.try_enqueue("First");
-    bool ok2 = queue.try_enqueue("Second");
-    bool ok3 = queue.try_enqueue("Third");
-    assert(ok1);
-    assert(ok2);
-    assert(ok3);
+    affirm(queue.try_enqueue("First"));
+    affirm(queue.try_enqueue("Second"));
+    affirm(queue.try_enqueue("Third"));
 
     auto val1 = queue.try_dequeue();
-    assert(val1.has_value());
-    assert(val1.value() == "First");
+    affirm(val1.has_value());
+    affirm(val1.value() == "First");
     auto val2 = queue.try_dequeue();
-    assert(val2.has_value());
-    assert(val2.value() == "Second");
+    affirm(val2.has_value());
+    affirm(val2.value() == "Second");
     auto val3 = queue.try_dequeue();
-    assert(val3.has_value());
-    assert(val3.value() == "Third");
+    affirm(val3.has_value());
+    affirm(val3.value() == "Third");
 
     std::cout << "  PASSED: move semantics" << std::endl;
 }
@@ -170,11 +160,11 @@ void test_concurrent() {
     consumer.join();
 
     // Verify all elements were consumed in order
-    assert(consumed.size() == num_elements);
+    affirm(consumed.size() == num_elements);
     for (int i = 0; i < num_elements; ++i) {
-        assert(consumed[i] == i);
+        affirm(consumed[i] == i);
     }
-    assert(queue.empty());
+    affirm(queue.empty());
 
     std::cout << "  PASSED: concurrent producer-consumer" << std::endl;
 }
@@ -187,23 +177,21 @@ void test_bulk_enqueue_dequeue() {
     std::vector<int> output(input.size());
 
     // Enqueue all elements
-    std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
-    assert(enqueued == input.size());
-    assert(queue.size() == input.size());
+    affirm(queue.try_enqueue(input.data(), input.size()) == input.size());
+    affirm(queue.size() == input.size());
 
     // Dequeue all elements
-    std::size_t dequeued = queue.try_dequeue(output.data(), output.size());
-    assert(dequeued == input.size());
-    assert(queue.empty());
+    affirm(queue.try_dequeue(output.data(), output.size()) == input.size());
+    affirm(queue.empty());
 
     // Verify inputs produced match outputs consumed in same order
-    assert(input.size() == output.size());
+    affirm(input.size() == output.size());
     for (std::size_t i = 0; i < input.size(); ++i) {
-        assert(output[i] == input[i]);
+        affirm(output[i] == input[i]);
     }
     // Verify each element individually
     for (std::size_t i = 0; i < output.size(); ++i) {
-        assert(output.at(i) == input.at(i));
+        affirm(output.at(i) == input.at(i));
     }
 
     std::cout << "  PASSED: bulk enqueue/dequeue" << std::endl;
@@ -217,36 +205,32 @@ void test_bulk_partial() {
     std::vector<int> consumed_output;
 
     // Enqueue first batch
-    std::size_t enqueued1 = queue.try_enqueue(input.data(), 4);
-    assert(enqueued1 == 4);
+    affirm(queue.try_enqueue(input.data(), 4) == 4);
 
     // Dequeue partial
     std::vector<int> output1(2);
-    std::size_t dequeued1 = queue.try_dequeue(output1.data(), 2);
-    assert(dequeued1 == 2);
-    assert(output1[0] == 1);
-    assert(output1[1] == 2);
-    assert(output1[0] == input[0]);
-    assert(output1[1] == input[1]);
+    affirm(queue.try_dequeue(output1.data(), 2) == 2);
+    affirm(output1[0] == 1);
+    affirm(output1[1] == 2);
+    affirm(output1[0] == input[0]);
+    affirm(output1[1] == input[1]);
     consumed_output.insert(consumed_output.end(), output1.begin(), output1.end());
 
     // Enqueue more
-    std::size_t enqueued2 = queue.try_enqueue(&input[4], 4);
-    assert(enqueued2 == 4);
+    affirm(queue.try_enqueue(&input[4], 4) == 4);
 
     // Dequeue remaining
     std::vector<int> output2(6);
-    std::size_t dequeued2 = queue.try_dequeue(output2.data(), 6);
-    assert(dequeued2 == 6);
+    affirm(queue.try_dequeue(output2.data(), 6) == 6);
     consumed_output.insert(consumed_output.end(), output2.begin(), output2.begin() + 6);
 
     // Verify all consumed elements match original input order
     for (std::size_t i = 0; i < consumed_output.size(); ++i) {
-        assert(consumed_output[i] == input[i]);
+        affirm(consumed_output[i] == input[i]);
     }
     // Verify
     for (int i = 0; i < 6; ++i) {
-        assert(output2[i] == (3 + i));
+        affirm(output2[i] == (3 + i));
     }
 
     std::cout << "  PASSED: partial bulk operations" << std::endl;
@@ -260,15 +244,13 @@ void test_bulk_full_queue() {
     std::vector<int> input2 = { 7, 8, 9, 10 };
 
     // Fill most of the queue (capacity is 8, so we can store 7)
-    std::size_t enqueued1 = queue.try_enqueue(input1.data(), input1.size());
-    assert(enqueued1 == 6);
+    affirm(queue.try_enqueue(input1.data(), input1.size()) == 6);
 
     // Try to enqueue more than available space
-    std::size_t enqueued2 = queue.try_enqueue(input2.data(), input2.size());
-    assert(enqueued2 == 1); // Only 1 slot available
+    affirm(queue.try_enqueue(input2.data(), input2.size()) == 1); // Only 1 slot available
 
     // Verify size
-    assert(queue.size() == 7);
+    affirm(queue.size() == 7);
 
     std::cout << "  PASSED: bulk enqueue on full queue" << std::endl;
 }
@@ -278,9 +260,8 @@ void test_bulk_empty_dequeue() {
     SPSC<int, 16> queue;
 
     std::vector<int> output(10);
-    std::size_t dequeued = queue.try_dequeue(output.data(), 10);
-    assert(dequeued == 0);
-    assert(queue.empty());
+    affirm(queue.try_dequeue(output.data(), 10) == 0);
+    affirm(queue.empty());
 
     std::cout << "  PASSED: bulk dequeue from empty queue" << std::endl;
 }
@@ -297,43 +278,38 @@ void test_bulk_wrap_around() {
     std::vector<int> expected_order = { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
     // Enqueue first batch
-    std::size_t e1 = queue.try_enqueue(batch1.data(), batch1.size());
-    assert(e1 == 4);
+    affirm(queue.try_enqueue(batch1.data(), batch1.size()) == 4);
 
     // Consume 2 elements
-    std::size_t d1 = queue.try_dequeue(output.data(), 2);
-    assert(d1 == 2);
-    assert(output[0] == 1 && output[1] == 2);
-    assert(output[0] == batch1[0] && output[1] == batch1[1]);
+    affirm(queue.try_dequeue(output.data(), 2) == 2);
+    affirm(output[0] == 1 && output[1] == 2);
+    affirm(output[0] == batch1[0] && output[1] == batch1[1]);
 
     // Enqueue more
-    std::size_t e2 = queue.try_enqueue(batch2.data(), batch2.size());
-    assert(e2 == 2);
+    affirm(queue.try_enqueue(batch2.data(), batch2.size()) == 2);
 
     // Now queue should have: [3, 4, 5, 6] with tail wrapped
-    std::size_t size = queue.size();
-    assert(size == 4);
+    affirm(queue.size() == 4);
 
     // Enqueue another batch (this should handle wrap-around)
-    std::size_t e3 = queue.try_enqueue(batch3.data(), batch3.size());
-    assert(e3 == 3); // Can only fit 3 more (capacity is 8, 1 reserved)
+    affirm(queue.try_enqueue(batch3.data(), batch3.size())
+        == 3); // Can only fit 3 more (capacity is 8, 1 reserved)
 
     // Dequeue all
     std::vector<int> final_output(7);
-    std::size_t d2 = queue.try_dequeue(final_output.data(), 7);
-    assert(d2 == 7);
+    affirm(queue.try_dequeue(final_output.data(), 7) == 7);
 
     // Verify order: 3, 4, 5, 6, 7, 8, 9
     int expected[] = { 3, 4, 5, 6, 7, 8, 9 };
     for (int i = 0; i < 7; ++i) {
-        assert(final_output[i] == expected[i]);
+        affirm(final_output[i] == expected[i]);
     }
 
     // Verify full consumption matches expected order
-    assert(expected_order[0] == output[0]);
-    assert(expected_order[1] == output[1]);
+    affirm(expected_order[0] == output[0]);
+    affirm(expected_order[1] == output[1]);
     for (int i = 0; i < 7; ++i) {
-        assert(expected_order[2 + i] == final_output[i]);
+        affirm(expected_order[2 + i] == final_output[i]);
     }
 
     std::cout << "  PASSED: bulk operations with wrap-around" << std::endl;
@@ -346,17 +322,15 @@ void test_bulk_with_strings() {
     std::vector<std::string> input = { "hello", "world", "test", "bulk" };
     std::vector<std::string> output(input.size());
 
-    std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
-    assert(enqueued == input.size());
+    affirm(queue.try_enqueue(input.data(), input.size()) == input.size());
 
-    std::size_t dequeued = queue.try_dequeue(output.data(), output.size());
-    assert(dequeued == input.size());
+    affirm(queue.try_dequeue(output.data(), output.size()) == input.size());
 
     // Verify inputs produced match outputs consumed in same order
-    assert(input.size() == output.size());
+    affirm(input.size() == output.size());
     for (std::size_t i = 0; i < input.size(); ++i) {
-        assert(output[i] == input[i]);
-        assert(output.at(i) == input.at(i));
+        affirm(output[i] == input[i]);
+        affirm(output.at(i) == input.at(i));
     }
 
     std::cout << "  PASSED: bulk operations with strings" << std::endl;
@@ -410,11 +384,11 @@ void test_bulk_concurrent() {
     consumer.join();
 
     // Verify
-    assert(consumed.size() == total_elements);
+    affirm(consumed.size() == total_elements);
     for (int i = 0; i < total_elements; ++i) {
-        assert(consumed[i] == i);
+        affirm(consumed[i] == i);
     }
-    assert(queue.empty());
+    affirm(queue.empty());
 
     std::cout << "  PASSED: concurrent bulk operations" << std::endl;
 }
@@ -425,16 +399,14 @@ void test_blocking_enqueue() {
 
     // Fill the queue to near capacity (7 elements max)
     for (int i = 0; i < 7; ++i) {
-        bool enqueued = queue.enqueue(i, std::chrono::seconds(5));
-        assert(enqueued);
+        affirm(queue.enqueue(i, std::chrono::seconds(5)));
     }
-    assert(queue.size() == 7);
+    affirm(queue.size() == 7);
 
     // Producer thread tries to enqueue (will block until consumer makes space)
     std::atomic<bool> producer_done { false };
     std::thread producer([&queue, &producer_done]() {
-        bool enqueued = queue.enqueue(99, std::chrono::seconds(5));
-        assert(enqueued);
+        affirm(queue.enqueue(99, std::chrono::seconds(5)));
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -443,13 +415,13 @@ void test_blocking_enqueue() {
 
     // Consumer dequeues one element, unblocking the producer
     auto value = queue.try_dequeue();
-    assert(value.has_value());
-    assert(value.value() == 0);
+    affirm(value.has_value());
+    affirm(value.value() == 0);
 
     // Wait for producer to complete
     producer.join();
-    assert(producer_done.load());
-    assert(queue.size() == 7); // Should have 1-6 and 99
+    affirm(producer_done.load());
+    affirm(queue.size() == 7); // Should have 1-6 and 99
 
     std::cout << "  PASSED: blocking enqueue" << std::endl;
 }
@@ -472,17 +444,16 @@ void test_blocking_dequeue() {
 
     // Give consumer time to block
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    assert(!consumer_done.load()); // Consumer should still be blocked
+    affirm(!consumer_done.load()); // Consumer should still be blocked
 
     // Producer enqueues an element, unblocking consumer
-    bool enqueued = queue.enqueue(42, std::chrono::seconds(5));
-    assert(enqueued);
+    affirm(queue.enqueue(42, std::chrono::seconds(5)));
 
     // Wait for consumer to complete
     consumer.join();
-    assert(consumer_done.load());
-    assert(dequeued_value.load() == 42);
-    assert(queue.empty());
+    affirm(consumer_done.load());
+    affirm(dequeued_value.load() == 42);
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking dequeue" << std::endl;
 }
@@ -495,8 +466,7 @@ void test_blocking_concurrent() {
     // Producer thread
     std::thread producer([&queue]() {
         for (int i = 0; i < num_elements; ++i) {
-            bool enqueued = queue.enqueue(i, std::chrono::seconds(5));
-            assert(enqueued);
+            affirm(queue.enqueue(i, std::chrono::seconds(5)));
         }
     });
 
@@ -505,7 +475,7 @@ void test_blocking_concurrent() {
     std::thread consumer([&queue, &consumed]() {
         for (int i = 0; i < num_elements; ++i) {
             auto value = queue.dequeue(std::chrono::seconds(5));
-            assert(value.has_value());
+            affirm(value.has_value());
             consumed.push_back(value.value());
         }
     });
@@ -514,11 +484,11 @@ void test_blocking_concurrent() {
     consumer.join();
 
     // Verify all elements were consumed in order
-    assert(consumed.size() == num_elements);
+    affirm(consumed.size() == num_elements);
     for (int i = 0; i < num_elements; ++i) {
-        assert(consumed[i] == i);
+        affirm(consumed[i] == i);
     }
-    assert(queue.empty());
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking concurrent operations" << std::endl;
 }
@@ -543,13 +513,12 @@ void test_blocking_with_strings() {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     // Producer enqueues
-    bool enqueued = queue.enqueue(std::string("Hello, World!"), std::chrono::seconds(5));
-    assert(enqueued);
+    affirm(queue.enqueue(std::string("Hello, World!"), std::chrono::seconds(5)));
 
     consumer.join();
-    assert(done.load());
-    assert(result == "Hello, World!");
-    assert(queue.empty());
+    affirm(done.load());
+    affirm(result == "Hello, World!");
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking operations with strings" << std::endl;
 }
@@ -563,8 +532,7 @@ void test_blocking_stress() {
     // Producer: continuously enqueue
     std::thread producer([&queue]() {
         for (int i = 0; i < total_ops; ++i) {
-            bool enqueued = queue.enqueue(i, std::chrono::seconds(5));
-            assert(enqueued);
+            affirm(queue.enqueue(i, std::chrono::seconds(5)));
         }
     });
 
@@ -572,8 +540,8 @@ void test_blocking_stress() {
     std::thread consumer([&queue, &consumed_count]() {
         for (int i = 0; i < total_ops; ++i) {
             auto value = queue.dequeue(std::chrono::seconds(5));
-            assert(value.has_value());
-            assert(value.value() == i);
+            affirm(value.has_value());
+            affirm(value.value() == i);
             consumed_count.fetch_add(1, std::memory_order_release);
         }
     });
@@ -581,8 +549,8 @@ void test_blocking_stress() {
     producer.join();
     consumer.join();
 
-    assert(consumed_count.load() == total_ops);
-    assert(queue.empty());
+    affirm(consumed_count.load() == total_ops);
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking stress test" << std::endl;
 }
@@ -593,10 +561,8 @@ void test_blocking_bulk_enqueue() {
 
     // Fill most of the queue
     std::vector<int> initial_batch = { 1, 2, 3, 4, 5, 6, 7 };
-    bool initial_enqueued
-        = queue.enqueue(initial_batch.data(), initial_batch.size(), std::chrono::seconds(5));
-    assert(initial_enqueued);
-    assert(queue.size() == 7);
+    affirm(queue.enqueue(initial_batch.data(), initial_batch.size(), std::chrono::seconds(5)));
+    affirm(queue.size() == 7);
 
     // Try to enqueue a large batch (will block until consumer drains)
     std::vector<int> large_batch(20);
@@ -606,15 +572,13 @@ void test_blocking_bulk_enqueue() {
 
     std::atomic<bool> producer_done { false };
     std::thread producer([&queue, &large_batch, &producer_done]() {
-        bool enqueued
-            = queue.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(5));
-        assert(enqueued);
+        affirm(queue.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(5)));
         producer_done.store(true, std::memory_order_release);
     });
 
     // Give producer time to block
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    assert(!producer_done.load()); // Should still be blocked
+    affirm(!producer_done.load()); // Should still be blocked
 
     // Consumer drains the queue gradually
     std::vector<int> consumed;
@@ -629,15 +593,15 @@ void test_blocking_bulk_enqueue() {
     }
 
     producer.join();
-    assert(producer_done.load());
+    affirm(producer_done.load());
 
     // Verify all elements
-    assert(consumed.size() == 27);
+    affirm(consumed.size() == 27);
     for (int i = 0; i < 7; ++i) {
-        assert(consumed[i] == i + 1);
+        affirm(consumed[i] == i + 1);
     }
     for (int i = 0; i < 20; ++i) {
-        assert(consumed[7 + i] == 100 + i);
+        affirm(consumed[7 + i] == 100 + i);
     }
 
     std::cout << "  PASSED: blocking bulk enqueue" << std::endl;
@@ -652,14 +616,13 @@ void test_blocking_bulk_dequeue() {
 
     // Consumer thread tries to dequeue 50 elements (will block)
     std::thread consumer([&queue, &output, &consumer_done]() {
-        std::size_t dequeued = queue.dequeue(output.data(), 50, std::chrono::seconds(5));
-        assert(dequeued == 50);
+        affirm(queue.dequeue(output.data(), 50, std::chrono::seconds(5)) == 50);
         consumer_done.store(true, std::memory_order_release);
     });
 
     // Give consumer time to block
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    assert(!consumer_done.load()); // Should be blocked
+    affirm(!consumer_done.load()); // Should be blocked
 
     // Producer enqueues all 50 elements in batches
     std::vector<int> batch1(25);
@@ -669,20 +632,18 @@ void test_blocking_bulk_dequeue() {
         batch2[i] = 25 + i;
     }
 
-    bool batch1_enqueued = queue.enqueue(batch1.data(), 25, std::chrono::seconds(5));
-    assert(batch1_enqueued);
-    bool batch2_enqueued = queue.enqueue(batch2.data(), 25, std::chrono::seconds(5));
-    assert(batch2_enqueued);
+    affirm(queue.enqueue(batch1.data(), 25, std::chrono::seconds(5)));
+    affirm(queue.enqueue(batch2.data(), 25, std::chrono::seconds(5)));
 
     // Wait for consumer to complete
     consumer.join();
-    assert(consumer_done.load());
+    affirm(consumer_done.load());
 
     // Verify all elements
     for (int i = 0; i < 50; ++i) {
-        assert(output[i] == i);
+        affirm(output[i] == i);
     }
-    assert(queue.empty());
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking bulk dequeue" << std::endl;
 }
@@ -701,8 +662,7 @@ void test_blocking_bulk_concurrent() {
             for (int i = 0; i < batch_size; ++i) {
                 batch[i] = b * batch_size + i;
             }
-            bool enqueued = queue.enqueue(batch.data(), batch_size, std::chrono::seconds(5));
-            assert(enqueued);
+            affirm(queue.enqueue(batch.data(), batch_size, std::chrono::seconds(5)));
         }
     });
 
@@ -714,8 +674,7 @@ void test_blocking_bulk_concurrent() {
         while (total_dequeued < total_elements) {
             int remaining = total_elements - total_dequeued;
             int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
-            std::size_t dequeued = queue.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5));
-            assert(dequeued == to_dequeue);
+            affirm(queue.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5)) == to_dequeue);
             for (int i = 0; i < to_dequeue; ++i) {
                 consumed.push_back(batch[i]);
             }
@@ -727,11 +686,11 @@ void test_blocking_bulk_concurrent() {
     consumer.join();
 
     // Verify
-    assert(consumed.size() == total_elements);
+    affirm(consumed.size() == total_elements);
     for (int i = 0; i < total_elements; ++i) {
-        assert(consumed[i] == i);
+        affirm(consumed[i] == i);
     }
-    assert(queue.empty());
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking bulk concurrent operations" << std::endl;
 }
@@ -747,41 +706,37 @@ void test_blocking_bulk_mixed() {
     for (int i = 0; i < 8; ++i) input2[i] = 100 + i;
 
     // Enqueue with blocking bulk
-    bool input1_enqueued = queue.enqueue(input1.data(), input1.size(), std::chrono::seconds(5));
-    assert(input1_enqueued);
-    assert(queue.size() == 10);
+    affirm(queue.enqueue(input1.data(), input1.size(), std::chrono::seconds(5)));
+    affirm(queue.size() == 10);
 
     // Dequeue with non-blocking try_dequeue
     std::vector<int> output1(5);
-    std::size_t dequeued = queue.try_dequeue(output1.data(), 5);
-    assert(dequeued == 5);
-    assert(queue.size() == 5);
+    affirm(queue.try_dequeue(output1.data(), 5) == 5);
+    affirm(queue.size() == 5);
 
     // Verify first dequeue matches first half of input1
     for (int i = 0; i < 5; ++i) {
-        assert(output1[i] == input1[i]);
+        affirm(output1[i] == input1[i]);
     }
 
     // Enqueue more with try_enqueue
-    std::size_t input2_enqueued = queue.try_enqueue(input2.data(), 8);
-    assert(input2_enqueued == 8);
-    assert(queue.size() == 13);
+    affirm(queue.try_enqueue(input2.data(), 8) == 8);
+    affirm(queue.size() == 13);
 
     // Dequeue all remaining with blocking bulk
     std::vector<int> output2(13);
-    std::size_t dequeued2 = queue.dequeue(output2.data(), 13, std::chrono::seconds(5));
-    assert(dequeued2 == 13);
-    assert(queue.empty());
+    affirm(queue.dequeue(output2.data(), 13, std::chrono::seconds(5)) == 13);
+    affirm(queue.empty());
 
     // Verify sequence - outputs match inputs in order
     int idx = 0;
     for (int i = 5; i < 10; ++i) {
-        assert(output2[idx] == input1[i]);
-        assert(output2[idx++] == i);
+        affirm(output2[idx] == input1[i]);
+        affirm(output2[idx++] == i);
     }
     for (int i = 0; i < 8; ++i) {
-        assert(output2[idx] == input2[i]);
-        assert(output2[idx++] == 100 + i);
+        affirm(output2[idx] == input2[i]);
+        affirm(output2[idx++] == 100 + i);
     }
 
     std::cout << "  PASSED: mixed blocking and non-blocking bulk operations" << std::endl;
@@ -797,26 +752,25 @@ void test_blocking_bulk_with_strings() {
 
     // Producer: enqueue all with blocking bulk
     std::thread producer([&queue, &input]() {
-        bool enqueued = queue.enqueue(input.data(), input.size(), std::chrono::seconds(5));
-        assert(enqueued);
+        affirm(queue.enqueue(input.data(), input.size(), std::chrono::seconds(5)));
     });
 
     // Consumer: dequeue all with blocking bulk
     std::thread consumer([&queue, &output]() {
-        std::size_t dequeued = queue.dequeue(output.data(), output.size(), std::chrono::seconds(5));
-        assert(dequeued == output.size());
+        affirm(
+            queue.dequeue(output.data(), output.size(), std::chrono::seconds(5)) == output.size());
     });
 
     producer.join();
     consumer.join();
 
     // Verify inputs produced match outputs consumed in same order
-    assert(output.size() == input.size());
+    affirm(output.size() == input.size());
     for (std::size_t i = 0; i < input.size(); ++i) {
-        assert(output[i] == input[i]);
-        assert(output.at(i) == input.at(i));
+        affirm(output[i] == input[i]);
+        affirm(output.at(i) == input.at(i));
     }
-    assert(queue.empty());
+    affirm(queue.empty());
 
     std::cout << "  PASSED: blocking bulk with strings" << std::endl;
 }
@@ -827,15 +781,13 @@ void test_enqueue_timeout_on_full() {
 
     // Fill the queue to capacity (7 elements max)
     for (int i = 0; i < 7; ++i) {
-        bool enqueued = queue.try_enqueue(i);
-        assert(enqueued);
+        affirm(queue.try_enqueue(i));
     }
-    assert(queue.size() == 7);
+    affirm(queue.size() == 7);
 
     // Try to enqueue with short timeout (should fail)
-    bool success = queue.enqueue(999, std::chrono::milliseconds(50));
-    assert(!success); // Should timeout
-    assert(queue.size() == 7); // Queue unchanged
+    affirm(!queue.enqueue(999, std::chrono::milliseconds(50))); // Should timeout
+    affirm(queue.size() == 7); // Queue unchanged
 
     std::cout << "  PASSED: enqueue timeout on full" << std::endl;
 }
@@ -846,8 +798,7 @@ void test_enqueue_timeout_with_space() {
 
     // Fill the queue
     for (int i = 0; i < 7; ++i) {
-        bool enqueued = queue.enqueue(i, std::chrono::seconds(5));
-        assert(enqueued);
+        affirm(queue.enqueue(i, std::chrono::seconds(5)));
     }
 
     // Producer thread tries to enqueue with timeout
@@ -864,13 +815,13 @@ void test_enqueue_timeout_with_space() {
 
     // Consumer makes space
     auto value = queue.try_dequeue();
-    assert(value.has_value());
-    assert(value.value() == 0);
+    affirm(value.has_value());
+    affirm(value.value() == 0);
 
     // Wait for producer to complete
     producer.join();
-    assert(producer_done.load());
-    assert(producer_success.load()); // Should succeed eventually
+    affirm(producer_done.load());
+    affirm(producer_success.load()); // Should succeed eventually
 
     std::cout << "  PASSED: enqueue timeout with space" << std::endl;
 }
@@ -879,12 +830,11 @@ void test_dequeue_timeout_on_empty() {
     std::cout << "Testing dequeue timeout when queue is empty..." << std::endl;
     SPSC<int, 8> queue;
 
-    assert(queue.empty());
+    affirm(queue.empty());
 
     // Try to dequeue with short timeout (should return nullopt)
-    auto value = queue.dequeue(std::chrono::milliseconds(50));
-    assert(!value.has_value()); // Should timeout
-    assert(queue.empty());
+    affirm(!queue.dequeue(std::chrono::milliseconds(50)).has_value()); // Should timeout
+    affirm(queue.empty());
 
     std::cout << "  PASSED: dequeue timeout on empty" << std::endl;
 }
@@ -908,13 +858,12 @@ void test_dequeue_timeout_with_data() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Producer enqueues an element
-    bool enqueued = queue.enqueue(42, std::chrono::seconds(5));
-    assert(enqueued);
+    affirm(queue.enqueue(42, std::chrono::seconds(5)));
 
     // Wait for consumer to complete
     consumer.join();
-    assert(consumer_done.load());
-    assert(dequeued_value.load() == 42); // Should succeed eventually
+    affirm(consumer_done.load());
+    affirm(dequeued_value.load() == 42); // Should succeed eventually
 
     std::cout << "  PASSED: dequeue timeout with data" << std::endl;
 }
@@ -926,14 +875,13 @@ void test_bulk_enqueue_timeout_on_full() {
     // Fill the queue to capacity (7 elements max for capacity 8)
     std::vector<int> initial(7);
     for (int i = 0; i < 7; ++i) initial[i] = i;
-    bool enqueued = queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5));
-    assert(enqueued);
+    affirm(queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5)));
 
     // Try to enqueue bulk with short timeout (should fail)
     std::vector<int> batch = { 100, 101, 102, 103 };
-    bool success = queue.enqueue(batch.data(), batch.size(), std::chrono::milliseconds(50));
-    assert(!success); // Should timeout
-    assert(queue.size() == 7); // Queue unchanged
+    affirm(!queue.enqueue(batch.data(), batch.size(),
+        std::chrono::milliseconds(50))); // Should timeout
+    affirm(queue.size() == 7); // Queue unchanged
 
     std::cout << "  PASSED: bulk enqueue timeout on full" << std::endl;
 }
@@ -945,8 +893,7 @@ void test_bulk_enqueue_timeout_with_space() {
     // Fill most of the queue
     std::vector<int> initial(7);
     for (int i = 0; i < 7; ++i) initial[i] = i;
-    bool enqueued = queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5));
-    assert(enqueued);
+    affirm(queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5)));
 
     // Producer thread tries to enqueue bulk with timeout
     std::vector<int> large_batch(10);
@@ -967,13 +914,13 @@ void test_bulk_enqueue_timeout_with_space() {
     // Consumer gradually drains the queue
     for (int i = 0; i < 3; ++i) {
         auto val = queue.try_dequeue();
-        assert(val.has_value());
+        affirm(val.has_value());
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     producer.join();
-    assert(producer_done.load());
-    assert(producer_success.load()); // Should succeed eventually
+    affirm(producer_done.load());
+    affirm(producer_success.load()); // Should succeed eventually
 
     std::cout << "  PASSED: bulk enqueue timeout with space" << std::endl;
 }
@@ -982,14 +929,14 @@ void test_bulk_dequeue_timeout_on_empty() {
     std::cout << "Testing bulk dequeue timeout when queue is empty..." << std::endl;
     SPSC<int, 16> queue;
 
-    assert(queue.empty());
+    affirm(queue.empty());
 
     // Try to dequeue bulk with short timeout
     std::vector<int> output(10);
     std::size_t dequeued
         = queue.dequeue(output.data(), output.size(), std::chrono::milliseconds(50));
-    assert(dequeued == 0); // Should timeout with no data
-    assert(queue.empty());
+    affirm(dequeued == 0); // Should timeout with no data
+    affirm(queue.empty());
 
     std::cout << "  PASSED: bulk dequeue timeout on empty" << std::endl;
 }
@@ -1000,8 +947,7 @@ void test_bulk_dequeue_timeout_with_partial_data() {
 
     // Enqueue fewer elements than requested
     std::vector<int> initial = { 1, 2, 3 };
-    bool enqueued = queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5));
-    assert(enqueued);
+    affirm(queue.enqueue(initial.data(), initial.size(), std::chrono::seconds(5)));
 
     // Consumer thread tries to dequeue more than available
     std::vector<int> output(10);
@@ -1016,8 +962,8 @@ void test_bulk_dequeue_timeout_with_partial_data() {
     });
 
     consumer.join();
-    assert(consumer_done.load());
-    assert(dequeued_count.load() == 3); // Should return what was available
+    affirm(consumer_done.load());
+    affirm(dequeued_count.load() == 3); // Should return what was available
 
     std::cout << "  PASSED: bulk dequeue timeout with partial data" << std::endl;
 }
@@ -1055,8 +1001,8 @@ void test_graceful_shutdown_with_enqueue_timeout() {
 
     // Producer should have enqueued some elements before shutdown
     int enqueued = enqueued_count.load(std::memory_order_acquire);
-    assert(enqueued > 0);
-    assert(enqueued <= target_elements);
+    affirm(enqueued > 0);
+    affirm(enqueued <= target_elements);
 
     std::cout << "  PASSED: graceful producer shutdown with timeout" << std::endl;
 }
@@ -1070,8 +1016,7 @@ void test_graceful_shutdown_with_dequeue_timeout() {
     // Producer thread
     std::thread producer([&queue, &shutdown]() {
         for (int i = 0; i < 50; ++i) {
-            bool enqueued = queue.enqueue(i, std::chrono::seconds(5));
-            assert(enqueued);
+            affirm(queue.enqueue(i, std::chrono::seconds(5)));
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     });
@@ -1100,7 +1045,7 @@ void test_graceful_shutdown_with_dequeue_timeout() {
 
     // Consumer should have dequeued some elements
     int dequeued = dequeued_count.load(std::memory_order_acquire);
-    assert(dequeued > 0);
+    affirm(dequeued > 0);
 
     std::cout << "  PASSED: graceful consumer shutdown with timeout" << std::endl;
 }
@@ -1168,8 +1113,8 @@ void test_graceful_shutdown_with_bulk_operations() {
     // Verify data consistency
     int produced = total_produced.load(std::memory_order_acquire);
     int consumed = total_consumed.load(std::memory_order_acquire);
-    assert(produced > 0);
-    assert(produced == consumed);
+    affirm(produced > 0);
+    affirm(produced == consumed);
 
     std::cout << "  PASSED: graceful shutdown with bulk operations" << std::endl;
 }
@@ -1182,16 +1127,16 @@ void test_move_semantics_with_timeout() {
     for (int i = 0; i < 7; ++i) {
         bool enqueued
             = queue.enqueue(std::string("element") + std::to_string(i), std::chrono::seconds(5));
-        assert(enqueued);
+        affirm(enqueued);
     }
 
     // Try to enqueue with move and timeout (should fail)
     std::string to_enqueue = "timeout_test";
-    bool success = queue.enqueue(std::move(to_enqueue), std::chrono::milliseconds(50));
-    assert(!success); // Should timeout
+    affirm(!queue.enqueue(std::move(to_enqueue),
+        std::chrono::milliseconds(50))); // Should timeout
 
-    // Note: after failed enqueue with timeout, the moved string may or may not be valid
-    // depending on implementation. We don't rely on it here.
+    // Note: after failed enqueue with timeout, the moved string may or may not be
+    // valid depending on implementation. We don't rely on it here.
 
     std::cout << "  PASSED: move semantics with timeout" << std::endl;
 }
@@ -1216,7 +1161,7 @@ public:
     LifecycleTracker(const LifecycleTracker& other)
         : id(other.id)
         , is_valid(true) {
-        assert(other.is_valid && "Attempting to copy from invalid object");
+        affirm(other.is_valid && "Attempting to copy from invalid object");
         instance_count.fetch_add(1, std::memory_order_relaxed);
         active_count.fetch_add(1, std::memory_order_relaxed);
     }
@@ -1225,14 +1170,14 @@ public:
     LifecycleTracker(LifecycleTracker&& other) noexcept
         : id(other.id)
         , is_valid(true) {
-        assert(other.is_valid && "Attempting to move from invalid object");
+        affirm(other.is_valid && "Attempting to move from invalid object");
         // Don't mark other as invalid - just transfer ownership
     }
 
     // Copy assignment
     LifecycleTracker& operator=(const LifecycleTracker& other) {
-        assert(is_valid && "Assigning to invalid object");
-        assert(other.is_valid && "Assigning from invalid object");
+        affirm(is_valid && "Assigning to invalid object");
+        affirm(other.is_valid && "Assigning from invalid object");
         id = other.id;
         is_valid = true;
         return *this;
@@ -1240,8 +1185,8 @@ public:
 
     // Move assignment
     LifecycleTracker& operator=(LifecycleTracker&& other) noexcept {
-        assert(is_valid && "Assigning to invalid object");
-        assert(other.is_valid && "Assigning from invalid object");
+        affirm(is_valid && "Assigning to invalid object");
+        affirm(other.is_valid && "Assigning from invalid object");
         id = other.id;
         is_valid = true;
         // Don't mark other as invalid - just transfer ownership
@@ -1254,7 +1199,7 @@ public:
         }
     }
 
-    void verify_valid() const { assert(is_valid && "Object is invalid (use-after-free detected)"); }
+    void verify_valid() const { affirm(is_valid && "Object is invalid (use-after-free detected)"); }
 };
 
 std::atomic<int> LifecycleTracker::instance_count { 0 };
@@ -1268,21 +1213,20 @@ void test_use_after_free_single_element() {
         // Enqueue an element
         {
             LifecycleTracker obj(42);
-            bool enqueued = queue.try_enqueue(std::move(obj));
-            assert(enqueued);
+            affirm(queue.try_enqueue(std::move(obj)));
         } // obj destroyed here
 
         // Dequeue the element
         auto dequeued = queue.try_dequeue();
-        assert(dequeued.has_value());
+        affirm(dequeued.has_value());
 
         // Verify the dequeued object is valid and accessible
         dequeued->verify_valid();
-        assert(dequeued->id == 42);
+        affirm(dequeued->id == 42);
 
         // Use the dequeued object - should not cause use-after-free
         int value = dequeued->id;
-        assert(value == 42);
+        affirm(value == 42);
     }
 
     std::cout << "  PASSED: use-after-free single element" << std::endl;
@@ -1298,23 +1242,22 @@ void test_use_after_free_multiple_elements() {
             const int num_elements = 10;
             for (int i = 0; i < num_elements; ++i) {
                 LifecycleTracker obj(i);
-                bool enqueued = queue.try_enqueue(std::move(obj));
-                assert(enqueued);
+                affirm(queue.try_enqueue(std::move(obj)));
             }
         } // all temporary objs destroyed
 
         // Dequeue and verify each element
         for (int i = 0; i < 10; ++i) {
             auto dequeued = queue.try_dequeue();
-            assert(dequeued.has_value());
+            affirm(dequeued.has_value());
 
             // Verify validity and use the object
             dequeued->verify_valid();
-            assert(dequeued->id == i);
+            affirm(dequeued->id == i);
         }
 
         // Queue should be empty
-        assert(queue.empty());
+        affirm(queue.empty());
     }
 
     std::cout << "  PASSED: use-after-free multiple elements" << std::endl;
@@ -1332,24 +1275,22 @@ void test_use_after_free_bulk_operations() {
                 input.push_back(LifecycleTracker(i * 10));
             }
 
-            std::size_t enqueued = queue.try_enqueue(input.data(), input.size());
-            assert(enqueued == input.size());
+            affirm(queue.try_enqueue(input.data(), input.size()) == input.size());
         } // input vector destroyed
 
         // Bulk dequeue
         {
             std::vector<LifecycleTracker> output(8);
-            std::size_t dequeued = queue.try_dequeue(output.data(), output.size());
-            assert(dequeued == 8);
+            affirm(queue.try_dequeue(output.data(), output.size()) == 8);
 
             // Verify all dequeued objects are valid and correct
             for (std::size_t i = 0; i < output.size(); ++i) {
                 output[i].verify_valid();
-                assert(output[i].id == (int)i * 10);
+                affirm(output[i].id == (int)i * 10);
             }
         } // output vector destroyed
 
-        assert(queue.empty());
+        affirm(queue.empty());
     }
 
     std::cout << "  PASSED: use-after-free bulk operations" << std::endl;
@@ -1397,9 +1338,9 @@ void test_use_after_free_concurrent() {
         consumer.join();
 
         // Verify all elements were consumed in order
-        assert(consumed_ids.size() == num_elements);
+        affirm(consumed_ids.size() == num_elements);
         for (int i = 0; i < num_elements; ++i) {
-            assert(consumed_ids[i] == i);
+            affirm(consumed_ids[i] == i);
         }
     }
 
@@ -1414,8 +1355,7 @@ void test_use_after_free_copy_semantics() {
         // Enqueue by copy
         {
             LifecycleTracker original(99);
-            bool enqueued = queue.try_enqueue(original); // Calls const& overload
-            assert(enqueued);
+            affirm(queue.try_enqueue(original)); // Calls const& overload
 
             // Original should still be valid
             original.verify_valid();
@@ -1423,9 +1363,9 @@ void test_use_after_free_copy_semantics() {
 
         // Dequeue and verify
         auto dequeued = queue.try_dequeue();
-        assert(dequeued.has_value());
+        affirm(dequeued.has_value());
         dequeued->verify_valid();
-        assert(dequeued->id == 99);
+        affirm(dequeued->id == 99);
     }
 
     std::cout << "  PASSED: use-after-free copy semantics" << std::endl;
@@ -1448,30 +1388,28 @@ void test_use_after_free_partial_dequeue() {
         // Partial dequeue
         {
             std::vector<LifecycleTracker> partial_output(5);
-            std::size_t dequeued1 = queue.try_dequeue(partial_output.data(), 5);
-            assert(dequeued1 == 5);
+            affirm(queue.try_dequeue(partial_output.data(), 5) == 5);
 
             // Verify first batch
             for (int i = 0; i < 5; ++i) {
                 partial_output[i].verify_valid();
-                assert(partial_output[i].id == i);
+                affirm(partial_output[i].id == i);
             }
         } // partial_output destroyed
 
         // Dequeue remaining
         {
             std::vector<LifecycleTracker> remaining_output(5);
-            std::size_t dequeued2 = queue.try_dequeue(remaining_output.data(), 5);
-            assert(dequeued2 == 5);
+            affirm(queue.try_dequeue(remaining_output.data(), 5) == 5);
 
             // Verify second batch
             for (int i = 0; i < 5; ++i) {
                 remaining_output[i].verify_valid();
-                assert(remaining_output[i].id == 5 + i);
+                affirm(remaining_output[i].id == 5 + i);
             }
         } // remaining_output destroyed
 
-        assert(queue.empty());
+        affirm(queue.empty());
     }
 
     std::cout << "  PASSED: use-after-free partial dequeue" << std::endl;
@@ -1486,8 +1424,7 @@ void test_use_after_free_blocking_operations() {
         std::thread producer([&queue]() {
             for (int i = 0; i < 20; ++i) {
                 LifecycleTracker obj(i);
-                bool enqueued = queue.enqueue(std::move(obj), std::chrono::seconds(5));
-                assert(enqueued);
+                affirm(queue.enqueue(std::move(obj), std::chrono::seconds(5)));
             }
         });
 
@@ -1496,7 +1433,7 @@ void test_use_after_free_blocking_operations() {
         std::thread consumer([&queue, &consumed_ids]() {
             for (int i = 0; i < 20; ++i) {
                 auto value = queue.dequeue(std::chrono::seconds(5));
-                assert(value.has_value());
+                affirm(value.has_value());
                 value->verify_valid();
                 consumed_ids.push_back(value->id);
             }
@@ -1506,46 +1443,43 @@ void test_use_after_free_blocking_operations() {
         consumer.join();
 
         // Verify all elements were consumed in order
-        assert(consumed_ids.size() == 20);
+        affirm(consumed_ids.size() == 20);
         for (int i = 0; i < 20; ++i) {
-            assert(consumed_ids[i] == i);
+            affirm(consumed_ids[i] == i);
         }
     }
 
     std::cout << "  PASSED: use-after-free blocking operations" << std::endl;
 }
 
-void test_producer_handle() {
-    std::cout << "Testing ProducerHandle..." << std::endl;
+void test_sink() {
+    std::cout << "Testing SpscSink..." << std::endl;
     SPSC<int, 16> queue;
-    qbuf::ProducerHandle<int, 16> producer(queue);
+    SpscSink<int, 16> sink(queue);
 
     // Test single enqueue
-    bool enqueued = producer.try_enqueue(10);
-    assert(enqueued);
-    assert(producer.size() == 1);
+    affirm(sink.try_enqueue(10));
+    affirm(sink.size() == 1);
 
     // Test bulk enqueue
     std::vector<int> batch = { 20, 30, 40 };
-    std::size_t num_enqueued = producer.try_enqueue(batch.data(), batch.size());
-    assert(num_enqueued == batch.size());
-    assert(producer.size() == 4);
+    affirm(sink.try_enqueue(batch.data(), batch.size()) == batch.size());
+    affirm(sink.size() == 4);
 
     // Test empty check
-    assert(!producer.empty());
+    affirm(!sink.empty());
 
     // Test blocking enqueue
-    bool blocked_enqueued = producer.enqueue(50, std::chrono::seconds(5));
-    assert(blocked_enqueued);
-    assert(producer.size() == 5);
+    affirm(sink.enqueue(50, std::chrono::seconds(5)));
+    affirm(sink.size() == 5);
 
-    std::cout << "  PASSED: ProducerHandle" << std::endl;
+    std::cout << "  PASSED: SpscSink" << std::endl;
 }
 
 void test_consumer_handle() {
-    std::cout << "Testing ConsumerHandle..." << std::endl;
+    std::cout << "Testing SpscSource..." << std::endl;
     SPSC<int, 16> queue;
-    qbuf::ConsumerHandle<int, 16> consumer(queue);
+    SpscSource<int, 16> source(queue);
 
     // Setup - use SPSC directly to enqueue
     queue.try_enqueue(10);
@@ -1553,90 +1487,87 @@ void test_consumer_handle() {
     queue.try_enqueue(30);
 
     // Test single dequeue
-    auto val = consumer.try_dequeue();
-    assert(val.has_value());
-    assert(val.value() == 10);
-    assert(consumer.size() == 2);
+    auto val = source.try_dequeue();
+    affirm(val.has_value());
+    affirm(val.value() == 10);
+    affirm(source.size() == 2);
 
     // Test bulk dequeue
     std::vector<int> output(2);
-    std::size_t dequeued = consumer.try_dequeue(output.data(), 2);
-    assert(dequeued == 2);
-    assert(output[0] == 20);
-    assert(output[1] == 30);
+    affirm(source.try_dequeue(output.data(), 2) == 2);
+    affirm(output[0] == 20);
+    affirm(output[1] == 30);
 
     // Test empty check
-    assert(consumer.empty());
+    affirm(source.empty());
 
-    std::cout << "  PASSED: ConsumerHandle" << std::endl;
+    std::cout << "  PASSED: SpscSource" << std::endl;
 }
 
-void test_producer_consumer_handles_concurrent() {
-    std::cout << "Testing ProducerHandle and ConsumerHandle concurrently..." << std::endl;
+void test_sink_source_concurrent() {
+    std::cout << "Testing SpscSink and SpscSource concurrently..." << std::endl;
     SPSC<int, 256> queue;
-    qbuf::ProducerHandle<int, 256> producer(queue);
-    qbuf::ConsumerHandle<int, 256> consumer(queue);
+    SpscSink<int, 256> sink(queue);
+    SpscSource<int, 256> source(queue);
 
     constexpr int num_elements = 100;
     std::atomic<bool> producer_done { false };
 
     // Producer thread
-    std::thread prod_thread([&producer, &producer_done]() {
+    std::thread producer([&sink, &producer_done]() {
         for (int i = 0; i < num_elements; ++i) {
-            bool enqueued = producer.enqueue(i, std::chrono::seconds(5));
-            assert(enqueued);
+            affirm(sink.enqueue(i, std::chrono::seconds(5)));
         }
         producer_done.store(true, std::memory_order_release);
     });
 
     // Consumer thread
     std::vector<int> consumed;
-    std::thread cons_thread([&consumer, &consumed, &producer_done]() {
+    std::thread consumer([&source, &consumed, &producer_done]() {
         for (int i = 0; i < num_elements; ++i) {
-            auto value = consumer.dequeue(std::chrono::seconds(5));
-            assert(value.has_value());
+            auto value = source.dequeue(std::chrono::seconds(5));
+            affirm(value.has_value());
             consumed.push_back(value.value());
         }
     });
 
-    prod_thread.join();
-    cons_thread.join();
+    producer.join();
+    consumer.join();
 
     // Verify
-    assert(consumed.size() == num_elements);
+    affirm(consumed.size() == num_elements);
     for (int i = 0; i < num_elements; ++i) {
-        assert(consumed[i] == i);
+        affirm(consumed[i] == i);
     }
-    assert(consumer.empty());
+    affirm(source.empty());
 
-    std::cout << "  PASSED: ProducerHandle and ConsumerHandle concurrent" << std::endl;
+    std::cout << "  PASSED: SpscSink and SpscSource concurrent" << std::endl;
 }
 
-void test_producer_handle_bulk_with_strings() {
-    std::cout << "Testing ProducerHandle bulk operations with strings..." << std::endl;
+void test_sink_bulk_with_strings() {
+    std::cout << "Testing SpscSink bulk operations with strings..." << std::endl;
     SPSC<std::string, 16> queue;
-    qbuf::ProducerHandle<std::string, 16> producer(queue);
+    SpscSink<std::string, 16> producer(queue);
 
     std::vector<std::string> input = { "hello", "world", "test" };
-    std::size_t enqueued = producer.try_enqueue(input.data(), input.size());
-    assert(enqueued == input.size());
-    assert(producer.size() == 3);
+    affirm(producer.try_enqueue(input.data(), input.size()) == input.size());
+    affirm(producer.size() == 3);
 
     // Verify by direct dequeue from queue
     auto val1 = queue.try_dequeue();
-    assert(val1.value() == "hello");
+    affirm(val1.value() == "hello");
     auto val2 = queue.try_dequeue();
-    assert(val2.value() == "world");
+    affirm(val2.value() == "world");
     auto val3 = queue.try_dequeue();
-    assert(val3.value() == "test");
+    affirm(val3.value() == "test");
 
-    std::cout << "  PASSED: ProducerHandle bulk with strings" << std::endl;
+    std::cout << "  PASSED: SpscSink bulk with strings" << std::endl;
 }
 
 void test_consumer_handle_bulk_with_strings() {
-    std::cout << "Testing ConsumerHandle bulk operations with strings..." << std::endl;
+    std::cout << "Testing SpscSource bulk operations with strings..." << std::endl;
     SPSC<std::string, 16> queue;
-    qbuf::ConsumerHandle<std::string, 16> consumer(queue);
+    SpscSource<std::string, 16> source(queue);
 
     // Setup - enqueue directly
     queue.try_enqueue("first");
@@ -1645,14 +1576,13 @@ void test_consumer_handle_bulk_with_strings() {
 
     // Test bulk dequeue with consumer handle
     std::vector<std::string> output(3);
-    std::size_t dequeued = consumer.try_dequeue(output.data(), 3);
-    assert(dequeued == 3);
-    assert(output[0] == "first");
-    assert(output[1] == "second");
-    assert(output[2] == "third");
-    assert(consumer.empty());
+    affirm(source.try_dequeue(output.data(), 3) == 3);
+    affirm(output[0] == "first");
+    affirm(output[1] == "second");
+    affirm(output[2] == "third");
+    affirm(source.empty());
 
-    std::cout << "  PASSED: ConsumerHandle bulk with strings" << std::endl;
+    std::cout << "  PASSED: SpscSource bulk with strings" << std::endl;
 }
 
 void run_all_spsc_tests() {
@@ -1697,9 +1627,9 @@ void run_all_spsc_tests() {
     test_use_after_free_copy_semantics();
     test_use_after_free_partial_dequeue();
     test_use_after_free_blocking_operations();
-    test_producer_handle();
+    test_sink();
     test_consumer_handle();
-    test_producer_consumer_handles_concurrent();
-    test_producer_handle_bulk_with_strings();
+    test_sink_source_concurrent();
+    test_sink_bulk_with_strings();
     test_consumer_handle_bulk_with_strings();
 }

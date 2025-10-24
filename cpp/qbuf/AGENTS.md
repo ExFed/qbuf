@@ -6,7 +6,7 @@
 
 - For C++ files (`.cpp`, `.hpp`, `.h`), use `clang-format` with the project's `.clang-format` configuration file located at the workspace root.
 - Format individual files with: `clang-format -i <file>`
-- Format all C++ source files recursively with: `find include src tests -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i`
+- Format all C++ source files with: `git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' '**/*.h' | xargs clang-format -i`
 - Agents must run the formatter on any files they modify or create to ensure consistency with the project's code style.
 - This is non-negotiable: unformatted code submissions will be rejected.
 

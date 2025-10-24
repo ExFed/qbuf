@@ -15,9 +15,9 @@
  * @note Intended for use in test code to express and enforce expectations.
  */
 inline void affirm(bool expr) {
-    (void)expr; // ensure parameter is odr-used so release builds don't warn; side effects occur at call site
+    (void)expr; // ensure parameter is odr-used so release builds don't warn; side effects occur at
+                // call site
     assert(expr);
 }
 
 #endif // QBUF_AFFIRM_HPP
-// Removed duplicate definition and stray backticks
