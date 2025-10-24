@@ -37,6 +37,222 @@ public:
     SPSC& operator=(SPSC&&) = delete;
 
     /**
+     * @brief Check if the queue is empty
+     *
+     * @return true if empty, false otherwise
+     */
+    bool empty() const {
+        return head_.load(std::memory_order_acquire) == tail_.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Get approximate size of the queue
+     *
+     * @return Approximate number of elements in the queue
+     */
+    std::size_t size() const {
+        const auto head = head_.load(std::memory_order_acquire);
+        const auto tail = tail_.load(std::memory_order_acquire);
+        return (tail >= head) ? (tail - head) : (Capacity - head + tail);
+    }
+
+    /**
+     * @brief Producer-side handle for SPSC queue
+     *
+     * Provides a restricted interface exposing only enqueue operations and utility methods.
+     * This handle is intended for use by the single producer thread.
+     */
+    class Sink {
+    public:
+        Sink(SPSC<T, Capacity>& queue)
+            : queue_(queue) { }
+
+        // Non-copyable. Move constructible (reference is re-bound to the same queue)
+        Sink(const Sink&) = delete;
+        Sink& operator=(const Sink&) = delete;
+        Sink(Sink&&) = default;
+        // Not move-assignable due to reference member
+        Sink& operator=(Sink&&) = delete;
+
+        /**
+         * @brief Try to enqueue a single element
+         *
+         * @param value The value to enqueue
+         * @return true if successful, false if queue is full
+         */
+        bool try_enqueue(const T& value) { return queue_.try_enqueue(value); }
+
+        /**
+         * @brief Try to enqueue a single element (move semantics)
+         *
+         * @param value The value to enqueue
+         * @return true if successful, false if queue is full
+         */
+        bool try_enqueue(T&& value) { return queue_.try_enqueue(std::move(value)); }
+
+        /**
+         * @brief Try to enqueue multiple elements
+         *
+         * @param data Pointer to array of elements to enqueue
+         * @param count Number of elements to enqueue
+         * @return Number of elements successfully enqueued
+         */
+        std::size_t try_enqueue(const T* data, std::size_t count) {
+            return queue_.try_enqueue(data, count);
+        }
+
+        /**
+         * @brief Block until an element can be enqueued with timeout
+         *
+         * @tparam Rep The arithmetic type representing the timeout duration count
+         * @tparam Period The `std::ratio` type representing the timeout duration period
+         * @param value The value to enqueue
+         * @param timeout Maximum time to wait for enqueue
+         * @return true if successful, false if timeout expired
+         */
+        template <typename Rep, typename Period>
+        bool enqueue(const T& value, std::chrono::duration<Rep, Period> timeout) {
+            return queue_.enqueue(value, timeout);
+        }
+
+        /**
+         * @brief Block until an element can be enqueued with timeout (move semantics)
+         *
+         * @tparam Rep The arithmetic type representing the timeout duration count
+         * @tparam Period The `std::ratio` type representing the timeout duration period
+         * @param value The value to enqueue (will be moved)
+         * @param timeout Maximum time to wait for enqueue
+         * @return true if successful, false if timeout expired
+         */
+        template <typename Rep, typename Period>
+        bool enqueue(T&& value, std::chrono::duration<Rep, Period> timeout) {
+            return queue_.enqueue(std::move(value), timeout);
+        }
+
+        /**
+         * @brief Block until all elements are enqueued with timeout
+         *
+         * @tparam Rep The arithmetic type representing the timeout duration count
+         * @tparam Period The `std::ratio` type representing the timeout duration period
+         * @param data Pointer to array of elements to enqueue
+         * @param count Number of elements to enqueue
+         * @param timeout Maximum time to wait for all elements to be enqueued
+         * @return true if all elements were enqueued, false if timeout expired
+         */
+        template <typename Rep, typename Period>
+        bool enqueue(const T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
+            return queue_.enqueue(data, count, timeout);
+        }
+
+        /**
+         * @brief Check if the queue is empty
+         *
+         * @return true if empty, false otherwise
+         */
+        bool empty() const { return queue_.empty(); }
+
+        /**
+         * @brief Get approximate size of the queue
+         *
+         * @return Approximate number of elements in the queue
+         */
+        std::size_t size() const { return queue_.size(); }
+
+    private:
+        SPSC<T, Capacity>& queue_;
+    };
+
+    /**
+     * @brief Consumer-side handle for SPSC queue
+     *
+     * Provides a restricted interface exposing only dequeue operations and utility methods.
+     * This handle is intended for use by the single consumer thread.
+     */
+    class Source {
+    public:
+        Source(SPSC<T, Capacity>& queue)
+            : queue_(queue) { }
+
+        // Non-copyable. Move constructible (reference is re-bound to the same queue)
+        Source(const Source&) = delete;
+        Source& operator=(const Source&) = delete;
+        Source(Source&&) = default;
+        // Not move-assignable due to reference member
+        Source& operator=(Source&&) = delete;
+
+        /**
+         * @brief Try to dequeue a single element
+         *
+         * @return std::optional containing the value if successful, std::nullopt if queue is empty
+         */
+        std::optional<T> try_dequeue() { return queue_.try_dequeue(); }
+
+        /**
+         * @brief Try to dequeue multiple elements
+         *
+         * @param data Pointer to output array
+         * @param count Maximum number of elements to dequeue
+         * @return Number of elements successfully dequeued
+         */
+        std::size_t try_dequeue(T* data, std::size_t count) {
+            return queue_.try_dequeue(data, count);
+        }
+
+        /**
+         * @brief Block until an element can be dequeued with timeout
+         *
+         * @tparam Rep The arithmetic type representing the timeout duration count
+         * @tparam Period The `std::ratio` type representing the timeout duration period
+         * @param timeout Maximum time to wait for dequeue
+         * @return std::optional containing the element if successful, std::nullopt if timeout
+         * expired
+         */
+        template <typename Rep, typename Period>
+        std::optional<T> dequeue(std::chrono::duration<Rep, Period> timeout) {
+            return queue_.dequeue(timeout);
+        }
+
+        /**
+         * @brief Block until all elements are dequeued with timeout
+         *
+         * @tparam Rep The arithmetic type representing the timeout duration count
+         * @tparam Period The `std::ratio` type representing the timeout duration period
+         * @param data Pointer to output array
+         * @param count Number of elements to dequeue
+         * @param timeout Maximum time to wait for all elements to be dequeued
+         * @return Number of elements successfully dequeued (may be less than count if timeout)
+         */
+        template <typename Rep, typename Period>
+        std::size_t dequeue(
+            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
+            return queue_.dequeue(data, count, timeout);
+        }
+
+        /**
+         * @brief Check if the queue is empty
+         *
+         * @return true if empty, false otherwise
+         */
+        bool empty() const { return queue_.empty(); }
+
+        /**
+         * @brief Get approximate size of the queue
+         *
+         * @return Approximate number of elements in the queue
+         */
+        std::size_t size() const { return queue_.size(); }
+
+    private:
+        SPSC<T, Capacity>& queue_;
+    };
+
+private:
+    friend class Sink;
+    friend class Source;
+
+    static constexpr std::size_t increment(std::size_t idx) { return (idx + 1) & (Capacity - 1); }
+
+    /**
      * @brief Try to enqueue a single element
      *
      * @param value The value to enqueue
@@ -354,218 +570,7 @@ public:
         return total_dequeued;
     }
 
-    /**
-     * @brief Check if the queue is empty
-     *
-     * @return true if empty, false otherwise
-     */
-    bool empty() const {
-        return head_.load(std::memory_order_acquire) == tail_.load(std::memory_order_acquire);
-    }
 
-    /**
-     * @brief Get approximate size of the queue
-     *
-     * @return Approximate number of elements in the queue
-     */
-    std::size_t size() const {
-        const auto head = head_.load(std::memory_order_acquire);
-        const auto tail = tail_.load(std::memory_order_acquire);
-        return (tail >= head) ? (tail - head) : (Capacity - head + tail);
-    }
-
-    /**
-     * @brief Producer-side handle for SPSC queue
-     *
-     * Provides a restricted interface exposing only enqueue operations and utility methods.
-     * This handle is intended for use by the single producer thread.
-     */
-    class Sink {
-    public:
-        Sink(SPSC<T, Capacity>& queue)
-            : queue_(queue) { }
-
-        // Non-copyable. Move constructible (reference is re-bound to the same queue)
-        Sink(const Sink&) = delete;
-        Sink& operator=(const Sink&) = delete;
-        Sink(Sink&&) = default;
-        // Not move-assignable due to reference member
-        Sink& operator=(Sink&&) = delete;
-
-        /**
-         * @brief Try to enqueue a single element
-         *
-         * @param value The value to enqueue
-         * @return true if successful, false if queue is full
-         */
-        bool try_enqueue(const T& value) { return queue_.try_enqueue(value); }
-
-        /**
-         * @brief Try to enqueue a single element (move semantics)
-         *
-         * @param value The value to enqueue
-         * @return true if successful, false if queue is full
-         */
-        bool try_enqueue(T&& value) { return queue_.try_enqueue(std::move(value)); }
-
-        /**
-         * @brief Try to enqueue multiple elements
-         *
-         * @param data Pointer to array of elements to enqueue
-         * @param count Number of elements to enqueue
-         * @return Number of elements successfully enqueued
-         */
-        std::size_t try_enqueue(const T* data, std::size_t count) {
-            return queue_.try_enqueue(data, count);
-        }
-
-        /**
-         * @brief Block until an element can be enqueued with timeout
-         *
-         * @tparam Rep The arithmetic type representing the timeout duration count
-         * @tparam Period The `std::ratio` type representing the timeout duration period
-         * @param value The value to enqueue
-         * @param timeout Maximum time to wait for enqueue
-         * @return true if successful, false if timeout expired
-         */
-        template <typename Rep, typename Period>
-        bool enqueue(const T& value, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(value, timeout);
-        }
-
-        /**
-         * @brief Block until an element can be enqueued with timeout (move semantics)
-         *
-         * @tparam Rep The arithmetic type representing the timeout duration count
-         * @tparam Period The `std::ratio` type representing the timeout duration period
-         * @param value The value to enqueue (will be moved)
-         * @param timeout Maximum time to wait for enqueue
-         * @return true if successful, false if timeout expired
-         */
-        template <typename Rep, typename Period>
-        bool enqueue(T&& value, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(std::move(value), timeout);
-        }
-
-        /**
-         * @brief Block until all elements are enqueued with timeout
-         *
-         * @tparam Rep The arithmetic type representing the timeout duration count
-         * @tparam Period The `std::ratio` type representing the timeout duration period
-         * @param data Pointer to array of elements to enqueue
-         * @param count Number of elements to enqueue
-         * @param timeout Maximum time to wait for all elements to be enqueued
-         * @return true if all elements were enqueued, false if timeout expired
-         */
-        template <typename Rep, typename Period>
-        bool enqueue(const T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(data, count, timeout);
-        }
-
-        /**
-         * @brief Check if the queue is empty
-         *
-         * @return true if empty, false otherwise
-         */
-        bool empty() const { return queue_.empty(); }
-
-        /**
-         * @brief Get approximate size of the queue
-         *
-         * @return Approximate number of elements in the queue
-         */
-        std::size_t size() const { return queue_.size(); }
-
-    private:
-        SPSC<T, Capacity>& queue_;
-    };
-
-    /**
-     * @brief Consumer-side handle for SPSC queue
-     *
-     * Provides a restricted interface exposing only dequeue operations and utility methods.
-     * This handle is intended for use by the single consumer thread.
-     */
-    class Source {
-    public:
-        Source(SPSC<T, Capacity>& queue)
-            : queue_(queue) { }
-
-        // Non-copyable. Move constructible (reference is re-bound to the same queue)
-        Source(const Source&) = delete;
-        Source& operator=(const Source&) = delete;
-        Source(Source&&) = default;
-        // Not move-assignable due to reference member
-        Source& operator=(Source&&) = delete;
-
-        /**
-         * @brief Try to dequeue a single element
-         *
-         * @return std::optional containing the value if successful, std::nullopt if queue is empty
-         */
-        std::optional<T> try_dequeue() { return queue_.try_dequeue(); }
-
-        /**
-         * @brief Try to dequeue multiple elements
-         *
-         * @param data Pointer to output array
-         * @param count Maximum number of elements to dequeue
-         * @return Number of elements successfully dequeued
-         */
-        std::size_t try_dequeue(T* data, std::size_t count) {
-            return queue_.try_dequeue(data, count);
-        }
-
-        /**
-         * @brief Block until an element can be dequeued with timeout
-         *
-         * @tparam Rep The arithmetic type representing the timeout duration count
-         * @tparam Period The `std::ratio` type representing the timeout duration period
-         * @param timeout Maximum time to wait for dequeue
-         * @return std::optional containing the element if successful, std::nullopt if timeout
-         * expired
-         */
-        template <typename Rep, typename Period>
-        std::optional<T> dequeue(std::chrono::duration<Rep, Period> timeout) {
-            return queue_.dequeue(timeout);
-        }
-
-        /**
-         * @brief Block until all elements are dequeued with timeout
-         *
-         * @tparam Rep The arithmetic type representing the timeout duration count
-         * @tparam Period The `std::ratio` type representing the timeout duration period
-         * @param data Pointer to output array
-         * @param count Number of elements to dequeue
-         * @param timeout Maximum time to wait for all elements to be dequeued
-         * @return Number of elements successfully dequeued (may be less than count if timeout)
-         */
-        template <typename Rep, typename Period>
-        std::size_t dequeue(
-            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.dequeue(data, count, timeout);
-        }
-
-        /**
-         * @brief Check if the queue is empty
-         *
-         * @return true if empty, false otherwise
-         */
-        bool empty() const { return queue_.empty(); }
-
-        /**
-         * @brief Get approximate size of the queue
-         *
-         * @return Approximate number of elements in the queue
-         */
-        std::size_t size() const { return queue_.size(); }
-
-    private:
-        SPSC<T, Capacity>& queue_;
-    };
-
-private:
-    static constexpr std::size_t increment(std::size_t idx) { return (idx + 1) & (Capacity - 1); }
 
     alignas(64) std::atomic<std::size_t> head_;
     alignas(64) std::atomic<std::size_t> tail_;

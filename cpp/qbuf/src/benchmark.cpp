@@ -36,13 +36,15 @@ void benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
     SPSC<int, Capacity> queue;
+    SpscSink<int, Capacity> sink(queue);
+    SpscSource<int, Capacity> source(queue);
 
     // Producer thread
     Timer timer;
-    std::thread producer([&queue, iterations, batch_size]() {
+    std::thread producer([&sink, iterations, batch_size]() {
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
-                while (!queue.try_enqueue(iter * batch_size + i)) {
+                while (!sink.try_enqueue(iter * batch_size + i)) {
                     std::this_thread::yield();
                 }
             }
@@ -50,11 +52,11 @@ void benchmark_individual_ops(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&queue, iterations, batch_size]() {
+    std::thread consumer([&source, iterations, batch_size]() {
         int total_consumed = 0;
         int target = iterations * batch_size;
         while (total_consumed < target) {
-            auto value = queue.try_dequeue();
+            auto value = source.try_dequeue();
             if (value.has_value()) {
                 ++total_consumed;
             } else {
@@ -81,10 +83,12 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
     SPSC<int, Capacity> queue;
+    SpscSink<int, Capacity> sink(queue);
+    SpscSource<int, Capacity> source(queue);
 
     // Producer thread
     Timer timer;
-    std::thread producer([&queue, iterations, batch_size]() {
+    std::thread producer([&sink, iterations, batch_size]() {
         std::vector<int> batch(batch_size);
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
@@ -92,7 +96,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
             }
             std::size_t enqueued = 0;
             while (enqueued < batch_size) {
-                enqueued += queue.try_enqueue(batch.data() + enqueued, batch_size - enqueued);
+                enqueued += sink.try_enqueue(batch.data() + enqueued, batch_size - enqueued);
                 if (enqueued < batch_size) {
                     std::this_thread::yield();
                 }
@@ -101,12 +105,12 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&queue, iterations, batch_size]() {
+    std::thread consumer([&source, iterations, batch_size]() {
         std::vector<int> batch(batch_size);
         int total_consumed = 0;
         int target = iterations * batch_size;
         while (total_consumed < target) {
-            std::size_t dequeued = queue.try_dequeue(batch.data(), batch_size);
+            std::size_t dequeued = source.try_dequeue(batch.data(), batch_size);
             total_consumed += dequeued;
             if (dequeued == 0) {
                 std::this_thread::yield();
