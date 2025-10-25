@@ -10,3 +10,6 @@ build/
 *.swp
 *~
 temp/
+
+# CodeQL artifacts
+_codeql*
