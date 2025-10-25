@@ -13,3 +13,6 @@ temp/
 
 # CodeQL artifacts
 _codeql*
+
+# dev VM wrapper script (generated)
+run-dev-vm.sh

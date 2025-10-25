@@ -28,7 +28,7 @@ The qbuf development VM is built using Guix System and QEMU. It provides:
 Before creating the VM, ensure you have:
 
 1. **Guix package manager** or **Guix System** installed
-   - Install from: https://guix.gnu.org/download/
+   - Install from: <https://guix.gnu.org/download/>
    - Or use your distribution's package manager if available
 
 2. **QEMU** installed
@@ -48,7 +48,7 @@ The fastest way to get started:
 ./scripts/dev-vm-create.sh
 
 # 2. Start the VM
-./run-qbuf-vm.sh
+./run-dev-vm.sh
 
 # 3. In another terminal, SSH into the VM
 ./scripts/dev-vm-ssh.sh
@@ -74,16 +74,18 @@ The `dev-vm-create.sh` script handles VM creation:
 ```
 
 This script:
+
 1. Verifies Guix and QEMU are installed
 2. Pulls the pinned Guix channels from `cpp/qbuf/channels.scm`
 3. Builds the VM using `dev-vm.scm` configuration
-4. Creates a wrapper script `run-qbuf-vm.sh` with sensible defaults
+4. Creates a wrapper script `run-dev-vm.sh` with sensible defaults
 
 **Note**: The first build can take 10-30 minutes depending on your system and network speed. Guix will download and cache all necessary packages. Subsequent builds reuse the cache and are much faster.
 
 ### What Gets Built
 
 The VM includes all packages from `cpp/qbuf/manifest.scm`:
+
 - Development tools: gcc, clang, cmake, git
 - Editors: vim, neovim
 - Utilities: tmux, ripgrep, tree, curl, wget
@@ -92,13 +94,13 @@ The VM includes all packages from `cpp/qbuf/manifest.scm`:
 ### Configuration Details
 
 The VM configuration (`dev-vm.scm`):
+
 - **Hostname**: qbuf-dev
 - **Default user**: `dev` (password: `dev`)
 - **Sudo**: Enabled for `wheel` group (no password required)
 - **SSH**: Enabled on port 22 (forwarded to host port 10022)
   - Password authentication enabled by default
-  - Optional: Add your SSH public key by editing `dev-vm.scm` (looks for `~/.ssh/id_rsa.pub`)
-- **Resources**: 2GB RAM, 2 CPUs (configurable in `run-qbuf-vm.sh`)
+- **Resources**: 2GB RAM, 2 CPUs (configurable in `run-dev-vm.sh`)
 
 ## Accessing the VM
 
@@ -107,10 +109,11 @@ The VM configuration (`dev-vm.scm`):
 Run the generated wrapper script:
 
 ```bash
-./run-qbuf-vm.sh
+./run-dev-vm.sh
 ```
 
 The VM will:
+
 - Start in the background with QEMU
 - Forward port 10022 on your host to port 22 in the VM
 - Share your repository directory as a 9p virtfs mount
@@ -136,12 +139,14 @@ ssh -p 10022 dev@localhost
 After logging in for the first time:
 
 1. **Mount the shared folder**:
+
    ```bash
    sudo mkdir -p /mnt/workspace
    sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
    ```
 
 2. **Verify the mount**:
+
    ```bash
    ls -la /mnt/workspace
    # You should see the repository files
@@ -217,6 +222,7 @@ To add packages to the VM system:
 
 1. Edit `dev-vm.scm`
 2. Add package to the `packages` list:
+
    ```scheme
    (packages (append (list
                       ...
@@ -226,13 +232,14 @@ To add packages to the VM system:
    ```
 
 3. Rebuild the VM:
+
    ```bash
    ./scripts/dev-vm-create.sh
    ```
 
 ### Changing VM Resources
 
-Edit the generated `run-qbuf-vm.sh` script:
+Edit the generated `run-dev-vm.sh` script:
 
 ```bash
 # Adjust these variables:
@@ -243,7 +250,7 @@ CPUS=4            # Use 4 CPU cores
 
 ### Adding More Shared Folders
 
-Edit `run-qbuf-vm.sh` and add additional `-virtfs` options:
+Edit `run-dev-vm.sh` and add additional `-virtfs` options:
 
 ```bash
 -virtfs local,path="/host/path",mount_tag=my_tag,security_model=mapped-xattr,id=my_id
@@ -274,9 +281,10 @@ To use different channel versions:
 
 ### VM Won't Start
 
-**Problem**: `run-qbuf-vm.sh` fails or hangs
+**Problem**: `run-dev-vm.sh` fails or hangs
 
 **Solutions**:
+
 - Check if port 10022 is already in use: `lsof -i :10022`
 - Verify QEMU is installed: `which qemu-system-x86_64`
 - Check if another VM instance is running: `pgrep qemu`
@@ -287,6 +295,7 @@ To use different channel versions:
 **Problem**: `scripts/dev-vm-ssh.sh` fails to connect
 
 **Solutions**:
+
 - Verify VM is running: `pgrep qemu`
 - Check port forwarding: `nc -zv localhost 10022`
 - Wait 30-60 seconds after VM start for SSH to be ready
@@ -297,18 +306,22 @@ To use different channel versions:
 **Problem**: Cannot see repository files in `/mnt/workspace`
 
 **Solutions**:
+
 - Ensure you mounted the 9p filesystem:
+
   ```bash
   sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
   ```
+
 - Check if the mount tag matches: `dmesg | grep 9p`
-- Verify the share path in `run-qbuf-vm.sh`
+- Verify the share path in `run-dev-vm.sh`
 
 ### Build Errors in VM
 
 **Problem**: CMake or compilation fails
 
 **Solutions**:
+
 - Ensure you're building from the shared mount: `cd /mnt/workspace/cpp/qbuf`
 - Check if packages are available: `which gcc`, `which cmake`
 - Try in a clean Guix shell: `guix shell -m manifest.scm`
@@ -319,7 +332,8 @@ To use different channel versions:
 **Problem**: VM is slow or unresponsive
 
 **Solutions**:
-- Increase memory in `run-qbuf-vm.sh`: `MEMORY=4G`
+
+- Increase memory in `run-dev-vm.sh`: `MEMORY=4G`
 - Increase CPU cores: `CPUS=4`
 - Check host system resources: `top` or `htop`
 - Consider using KVM acceleration if available (QEMU will auto-detect)
@@ -329,6 +343,7 @@ To use different channel versions:
 **Problem**: VM won't stop with `dev-vm-destroy.sh`
 
 **Solutions**:
+
 - Find the process: `pgrep -a qemu`
 - Force kill: `pkill -9 -f "qemu-system.*dev-vm"`
 - Or kill by PID: `kill -9 <pid>`
@@ -338,6 +353,7 @@ To use different channel versions:
 **Problem**: Changes to `dev-vm.scm` not reflected
 
 **Solution**:
+
 - Always run `./scripts/dev-vm-create.sh` after editing `dev-vm.scm`
 - Stop the old VM first: `./scripts/dev-vm-destroy.sh`
 - Guix caches builds, so rebuilds are usually fast
@@ -353,6 +369,7 @@ To stop a running VM:
 ```
 
 This script:
+
 1. Finds running QEMU processes for the qbuf VM
 2. Sends SIGTERM for graceful shutdown
 3. Waits up to 10 seconds
@@ -379,7 +396,7 @@ To completely remove all VM artifacts:
 ./scripts/dev-vm-destroy.sh
 
 # 2. Remove the wrapper script
-rm -f run-qbuf-vm.sh
+rm -f run-dev-vm.sh
 
 # 3. Garbage collect Guix store
 guix gc
@@ -434,7 +451,7 @@ If you encounter issues not covered here:
 
 1. Check QEMU logs: `dmesg` or VM console output
 2. Review Guix build logs: `guix build --log-file dev-vm.scm`
-3. Search existing issues: https://github.com/ExFed/qbuf/issues
+3. Search existing issues: <https://github.com/ExFed/qbuf/issues>
 4. Open a new issue with:
    - Steps to reproduce
    - Error messages

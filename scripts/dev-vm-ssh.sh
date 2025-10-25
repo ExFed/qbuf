@@ -46,7 +46,7 @@ fi
 
 if [ "$VM_REACHABLE" = false ]; then
     error "Cannot connect to VM at $SSH_HOST:$SSH_PORT"
-    error "Is the VM running? Start it with: ./run-qbuf-vm.sh"
+    error "Is the VM running? Start it with: ./run-dev-vm.sh"
     exit 1
 fi
 

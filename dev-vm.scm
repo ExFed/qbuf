@@ -23,7 +23,11 @@
              (gnu packages man)
              (gnu packages ssh)
              (gnu packages base)
-             (guix gexp))
+             (guix gexp)
+             (gnu services guix))
+
+(define dev-password
+  (crypt "dev" "$6$abcdefghijklmnop"))
 
 (operating-system
   (host-name "qbuf-dev")
@@ -49,7 +53,8 @@
                  (group "users")
                  (supplementary-groups '("wheel" "audio" "video"))
                  (home-directory "/home/dev")
-                 (shell (file-append bash "/bin/bash")))
+                 (shell (file-append bash "/bin/bash"))
+                 (password dev-password))
                %base-user-accounts))
 
   ;; Allow wheel group to use sudo without password for convenience
@@ -58,51 +63,15 @@ root ALL=(ALL) ALL
 %wheel ALL=(ALL) NOPASSWD:ALL\n"))
 
   ;; System packages available to all users
-  (packages (append (list
-                     ;; Development tools matching manifest.scm
-                     bash
-                     gcc-toolchain
-                     clang
-                     cmake
-                     git
-                     ;; Editors
-                     vim
-                     neovim
-                     ;; Terminal multiplexer
-                     tmux
-                     ;; Utilities
-                     coreutils
-                     findutils
-                     grep
-                     sed
-                     gawk
-                     diffutils
-                     which
-                     tree
-                     ripgrep
-                     curl
-                     wget
-                     tar
-                     gzip
-                     less
-                     man-db
-                     ncurses
-                     procps
-                     util-linux
-                     inetutils
-                     openssh
-                     nss-certs)
-                    %base-packages))
+  (packages %base-packages)
 
-  ;; Enable SSH for remote access
+  ;; Enable networking and SSH for remote access
   (services (cons* (service openssh-service-type
                            (openssh-configuration
                             (port-number 22)
                             (permit-root-login #t)
-                            (password-authentication? #t)
-                            ;; Optional: Import SSH public key if available
-                            ;; Edit this to add your own key or leave as-is for password auth
-                            (authorized-keys
-                             `(("dev" ,(local-file "~/.ssh/id_rsa.pub"
-                                                  #:optional? #t))))))
+                            (password-authentication? #t)))
+                   (simple-service 'dhcp
+                                   dhcpcd-service-type
+                                   #t)
                    %base-services)))

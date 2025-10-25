@@ -60,7 +60,7 @@ fi
 info "VM built successfully: $VM_SCRIPT"
 
 # Create a wrapper script with better defaults
-WRAPPER_SCRIPT="./run-qbuf-vm.sh"
+WRAPPER_SCRIPT="./run-dev-vm.sh"
 cat > "$WRAPPER_SCRIPT" << EOF
 #!/usr/bin/env bash
 # Auto-generated wrapper for qbuf development VM
