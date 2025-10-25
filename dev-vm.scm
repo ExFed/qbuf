@@ -44,12 +44,21 @@
                 (bootloader grub-bootloader)
                 (targets '("/dev/vda"))))
 
-  ;; Single root file system for VM
-  (file-systems (cons (file-system
-                        (device (file-system-label "my-root"))
-                        (mount-point "/")
-                        (type "ext4"))
-                      %base-file-systems))
+  ;; Root and shared workspace file systems
+  ;; The qbuf_share 9p mount is automatically configured to mount the host
+  ;; project directory at /mnt/workspace when the VM boots
+  (file-systems (cons* (file-system
+                         (device (file-system-label "my-root"))
+                         (mount-point "/")
+                         (type "ext4"))
+                       (file-system
+                         (device "qbuf_share")
+                         (mount-point "/mnt/workspace")
+                         (type "9p")
+                         (options "trans=virtio,cache=loose")
+                         (create-mount-point? #t)
+                         (check? #f))
+                       %base-file-systems))
 
   ;; Define a developer user with sudo access
   (users (cons (user-account

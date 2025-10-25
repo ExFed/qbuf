@@ -53,9 +53,7 @@ The fastest way to get started:
 # 3. In another terminal, SSH into the VM
 ./scripts/dev-vm-ssh.sh
 
-# 4. Inside the VM, mount the shared folder and build qbuf
-sudo mkdir -p /mnt/workspace
-sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
+# 4. Inside the VM, build qbuf (workspace is auto-mounted at /mnt/workspace)
 cd /mnt/workspace/cpp
 cmake -S . -B build --fresh
 cmake --build build
@@ -101,6 +99,7 @@ The VM configuration (`dev-vm.scm`):
 - **SSH**: Enabled on port 22 (forwarded to host port 10022)
   - Password authentication enabled by default
 - **Resources**: 2GB RAM, 2 CPUs (configurable in `run-dev-vm.sh`)
+- **Shared folder**: Host project directory auto-mounted at `/mnt/workspace`
 
 ## Accessing the VM
 
@@ -138,22 +137,22 @@ ssh -p 10022 dev@localhost
 
 After logging in for the first time:
 
-1. **Mount the shared folder**:
-
-   ```bash
-   sudo mkdir -p /mnt/workspace
-   sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
-   ```
-
-2. **Verify the mount**:
+1. **Verify the shared folder is mounted**:
 
    ```bash
    ls -la /mnt/workspace
    # You should see the repository files
    ```
 
-3. **Optional: Add mount to fstab for persistence** (requires VM rebuild):
-   Edit `dev-vm.scm` and add to `file-systems`.
+   The workspace directory is automatically mounted at boot via the VM configuration.
+
+2. **Start developing**:
+
+   ```bash
+   cd /mnt/workspace/cpp/qbuf
+   cmake -S . -B build --fresh
+   cmake --build build
+   ```
 
 ## Development Workflow
 
@@ -307,14 +306,16 @@ To use different channel versions:
 
 **Solutions**:
 
-- Ensure you mounted the 9p filesystem:
+- Check if the filesystem is mounted:
 
   ```bash
-  sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
+  mount | grep 9p
+  # Should show: qbuf_share on /mnt/workspace type 9p (rw,relatime,...)
   ```
 
-- Check if the mount tag matches: `dmesg | grep 9p`
-- Verify the share path in `run-dev-vm.sh`
+- Check boot logs for mount errors: `dmesg | grep 9p`
+- Verify the share path in `run-dev-vm.sh` matches your repository location
+- Ensure the virtfs tag matches: should be `qbuf_share`
 
 ### Build Errors in VM
 
