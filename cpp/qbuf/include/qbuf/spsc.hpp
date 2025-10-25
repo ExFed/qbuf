@@ -570,6 +570,8 @@ private:
         return total_dequeued;
     }
 
+
+
     alignas(64) std::atomic<std::size_t> head_;
     alignas(64) std::atomic<std::size_t> tail_;
     std::array<T, Capacity> buffer_;
