@@ -26,8 +26,13 @@
              (guix gexp)
              (gnu services guix))
 
-(define dev-password
-  (crypt "dev" "$6$abcdefghijklmnop"))
+(define (platform-random x)
+  (random x (random-state-from-platform)))
+
+(define (random-salt)
+  (let* ([max-salt (string->number "zzzzzzzzzzzzzzzz" 36)]
+         [salt (platform-random max-salt)])
+    (string-append "$6$" (number->string salt 36) "$")))
 
 (operating-system
   (host-name "qbuf-dev")
@@ -54,7 +59,7 @@
                  (supplementary-groups '("wheel" "audio" "video"))
                  (home-directory "/home/dev")
                  (shell (file-append bash "/bin/bash"))
-                 (password dev-password))
+                 (password (crypt "dev" (random-salt))))
                %base-user-accounts))
 
   ;; Allow wheel group to use sudo without password for convenience
