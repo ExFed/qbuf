@@ -56,7 +56,7 @@ The fastest way to get started:
 # 4. Inside the VM, mount the shared folder and build qbuf
 sudo mkdir -p /mnt/workspace
 sudo mount -t 9p -o trans=virtio qbuf_share /mnt/workspace
-cd /mnt/workspace/cpp/qbuf
+cd /mnt/workspace/cpp
 cmake -S . -B build --fresh
 cmake --build build
 ctest --output-on-failure --test-dir build
@@ -76,7 +76,7 @@ The `dev-vm-create.sh` script handles VM creation:
 This script:
 
 1. Verifies Guix and QEMU are installed
-2. Pulls the pinned Guix channels from `cpp/qbuf/channels.scm`
+2. Pulls the pinned Guix channels from `cpp/channels.scm`
 3. Builds the VM using `dev-vm.scm` configuration
 4. Creates a wrapper script `run-dev-vm.sh` with sensible defaults
 
@@ -84,7 +84,7 @@ This script:
 
 ### What Gets Built
 
-The VM includes all packages from `cpp/qbuf/manifest.scm`:
+The VM includes all packages from `cpp/manifest.scm`:
 
 - Development tools: gcc, clang, cmake, git
 - Editors: vim, neovim
@@ -162,7 +162,7 @@ After logging in for the first time:
 Once you've mounted the shared folder:
 
 ```bash
-cd /mnt/workspace/cpp/qbuf
+cd /mnt/workspace/cpp
 
 # Configure (first time or after cleaning)
 cmake -S . -B build --fresh
@@ -195,7 +195,7 @@ You have two options:
 For development with the exact manifest environment:
 
 ```bash
-cd /mnt/workspace/cpp/qbuf
+cd /mnt/workspace/cpp
 guix shell -m manifest.scm
 # Now you're in a pure environment matching the manifest
 ```
@@ -274,7 +274,7 @@ The default user `dev` has minimal configuration. To customize:
 
 To use different channel versions:
 
-1. Edit `cpp/qbuf/channels.scm` to pin different commits
+1. Edit `cpp/channels.scm` to pin different commits
 2. Rebuild the VM: `./scripts/dev-vm-create.sh`
 
 ## Troubleshooting
@@ -322,7 +322,7 @@ To use different channel versions:
 
 **Solutions**:
 
-- Ensure you're building from the shared mount: `cd /mnt/workspace/cpp/qbuf`
+- Ensure you're building from the shared mount: `cd /mnt/workspace/cpp`
 - Check if packages are available: `which gcc`, `which cmake`
 - Try in a clean Guix shell: `guix shell -m manifest.scm`
 - Verify file permissions on shared folder
@@ -414,7 +414,7 @@ The VM can be recreated anytime by running `./scripts/dev-vm-create.sh` again.
 To build the VM with exact channel versions:
 
 ```bash
-guix time-machine -C cpp/qbuf/channels.scm -- system vm dev-vm.scm
+guix time-machine -C cpp/channels.scm -- system vm dev-vm.scm
 ```
 
 ### Headless VM Operation
@@ -443,7 +443,7 @@ To see detailed boot output:
 - [Guix System Documentation](https://guix.gnu.org/manual/en/html_node/System-Configuration.html)
 - [Guix Cookbook: QEMU](https://guix.gnu.org/cookbook/en/html_node/Guix-System-in-a-VM.html)
 - [QEMU Documentation](https://www.qemu.org/docs/master/)
-- qbuf project: `README.md`, `cpp/qbuf/README.md`, `cpp/qbuf/AGENTS.md`
+- qbuf project: `README.md`, `cpp/README.md`, `cpp/AGENTS.md`
 
 ## Getting Help
 

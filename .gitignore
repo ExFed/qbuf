@@ -1,6 +1,24 @@
 # Build directories
 build/
 
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.cmake
+!CMakeLists.txt
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.dylib
+test_runner
+
+# Guix
+.guix-*
+result
+
 # IDE & temp files
 .cache/
 .clj-kondo/

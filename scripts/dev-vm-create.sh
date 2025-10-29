@@ -43,9 +43,9 @@ info "Building qbuf development VM..."
 info "This may take several minutes on first run..."
 
 # Pull channels if channels file exists
-if [ -f "cpp/qbuf/channels.scm" ]; then
+if [ -f "cpp/channels.scm" ]; then
     info "Pulling Guix channels..."
-    guix time-machine -C cpp/qbuf/channels.scm -- describe || warn "Channel pull failed, using current Guix version"
+    guix time-machine -C cpp/channels.scm -- describe || warn "Channel pull failed, using current Guix version"
 fi
 
 # Build the VM
