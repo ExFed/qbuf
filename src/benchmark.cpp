@@ -35,9 +35,7 @@ void benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    SPSC<int, Capacity> queue;
-    SpscSink<int, Capacity> sink(queue);
-    SpscSource<int, Capacity> source(queue);
+    auto [sink, source] = SPSC<int, Capacity>::make_queue();
 
     // Producer thread
     Timer timer;
@@ -82,9 +80,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    SPSC<int, Capacity> queue;
-    SpscSink<int, Capacity> sink(queue);
-    SpscSource<int, Capacity> source(queue);
+    auto [sink, source] = SPSC<int, Capacity>::make_queue();
 
     // Producer thread
     Timer timer;
