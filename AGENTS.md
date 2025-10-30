@@ -19,10 +19,14 @@
 - `include/qbuf/spsc.hpp` is the header-only library for a single-producer single-consumer queue, `SPSC`, exported via the CMake `qbuf` INTERFACE target.
   - `SPSC<T, Capacity>` is the primary queue implementation.
   - `SPSC<T, Capacity>::Sink` and `SPSC<T, Capacity>::Source` are role-based handle classes that expose restricted APIs for type safety.
+- `include/qbuf/mutex_queue.hpp` is the header-only library for a mutex-based circular buffer, `MutexQueue`, with API surface compatible with SPSC.
+  - `MutexQueue<T, Capacity>` uses `std::mutex` and `std::condition_variable` for synchronization.
+  - `MutexQueue<T, Capacity>::Sink` and `MutexQueue<T, Capacity>::Source` provide role-based access.
+  - Reserves one slot (max occupancy = Capacity - 1); Capacity can be any value > 1 (no power-of-two requirement).
 - `tests/test_main.cpp` is the entry point for the test runner; it delegates to `run_all_spsc_tests()` from `test_spsc.hpp`.
 - `tests/test_spsc.cpp` bundles all assertion-based tests; add new test functions here and register them in `run_all_spsc_tests()`.
 - `tests/test_spsc.hpp` declares the `run_all_spsc_tests()` function.
-- `src/benchmark.cpp` compares performance and is the place to script new performance runs.
+- `src/benchmark.cpp` compares performance of SPSC vs MutexQueue; add new benchmark runs here.
 - `.clang-format` contains formatting rules matching the project's code style.
 - Guix manifests in `manifest.scm` and `guix.scm` pin GCC 11 + CMake; prefer them when reproducing CI-like environments.
 - `TODO.md` contains a checklist of high-level tasks left to do.
@@ -46,6 +50,17 @@
 - All enqueue/dequeue paths use relaxed/acquire/release atomics; mirror the existing memory orders for correctness.
 - Bulk operations avoid `%` by splitting into up-to-two segments; maintain that pattern when adding new bulk helpers.
 - Blocking APIs rely on spinning with `std::this_thread::yield()`; changes here must respect the low-latency intent (documented in comments).
+
+## MutexQueue Design Notes
+
+- `MutexQueue<T, Capacity>` uses `std::mutex` for synchronization; Capacity can be any value > 1 (no power-of-two requirement).
+- Reserves one slot to distinguish full from empty (max occupancy = Capacity - 1).
+- `MutexQueue<T, Capacity>::Sink` and `MutexQueue<T, Capacity>::Source` provide role-based access mirroring SPSC's API.
+- Both handles wrap a reference to the underlying queue; non-copyable, move-constructible, no move-assign.
+- Blocking operations use `std::condition_variable` with `wait_until` and while-predicate loops to handle spurious wakeups.
+- Notifications (`cv_not_empty_`, `cv_not_full_`) occur after state changes; unlock-then-notify pattern reduces contention.
+- Bulk operations split transfers into up-to-two contiguous segments using modulo arithmetic.
+- Internal helpers: `next(i)`, `size_unlocked()`, `free_unlocked()`, `full_unlocked()` maintain consistency with circular buffer semantics.
 
 ## Testing & Extensions
 
