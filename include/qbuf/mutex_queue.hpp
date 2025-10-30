@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <type_traits>
 #include <utility>
 
 namespace qbuf {
@@ -27,6 +28,10 @@ template <typename T, std::size_t Capacity>
 class MutexQueue {
 public:
     static_assert(Capacity > 1, "Queue capacity must be greater than 1");
+    static_assert(
+        std::is_trivially_copyable_v<T>,
+        "T must be trivially copyable for bulk operations using memcpy"
+    );
 
 private:
     MutexQueue()
