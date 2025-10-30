@@ -35,7 +35,7 @@ ctest --output-on-failure --test-dir build
 ## Performance Benchmarks
 
 ```bash
-guix shell -m manifest.scm -- sh <<EOFvs code
+guix shell -m manifest.scm -- sh <<EOF
     set -euo pipefail
     cmake -S . -B build --fresh
     cmake --build build -j$(nproc)
