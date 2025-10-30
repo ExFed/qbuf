@@ -5,6 +5,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
+#include <cstring>
 #include <mutex>
 #include <optional>
 #include <utility>
@@ -207,7 +208,8 @@ public:
          */
         template <typename Rep, typename Period>
         std::size_t dequeue(
-            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
+            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout
+        ) {
             return queue_.dequeue(data, count, timeout);
         }
 
@@ -244,12 +246,10 @@ public:
         if (n == 0) return 0;
 
         std::size_t first_segment = (n < (Capacity - tail_)) ? n : (Capacity - tail_);
-        for (std::size_t i = 0; i < first_segment; ++i) {
-            buffer_[tail_ + i] = data[i];
-        }
+        std::memcpy(&buffer_[tail_], data, first_segment * sizeof(T));
         std::size_t second_segment = n - first_segment;
-        for (std::size_t i = 0; i < second_segment; ++i) {
-            buffer_[i] = data[first_segment + i];
+        if (second_segment > 0) {
+            std::memcpy(&buffer_[0], data + first_segment, second_segment * sizeof(T));
         }
         tail_ = (tail_ + n) % Capacity;
 
@@ -308,12 +308,10 @@ public:
             std::size_t can = (free_unlocked() < remaining) ? free_unlocked() : remaining;
             std::size_t first_segment = (can < (Capacity - tail_)) ? can : (Capacity - tail_);
 
-            for (std::size_t i = 0; i < first_segment; ++i) {
-                buffer_[tail_ + i] = data[total + i];
-            }
+            std::memcpy(&buffer_[tail_], data + total, first_segment * sizeof(T));
             std::size_t second_segment = can - first_segment;
-            for (std::size_t i = 0; i < second_segment; ++i) {
-                buffer_[i] = data[total + first_segment + i];
+            if (second_segment > 0) {
+                std::memcpy(&buffer_[0], data + total + first_segment, second_segment * sizeof(T));
             }
             tail_ = (tail_ + can) % Capacity;
             total += can;
@@ -340,12 +338,10 @@ public:
         if (n == 0) return 0;
 
         std::size_t first_segment = (n < (Capacity - head_)) ? n : (Capacity - head_);
-        for (std::size_t i = 0; i < first_segment; ++i) {
-            data[i] = std::move(buffer_[head_ + i]);
-        }
+        std::memcpy(data, &buffer_[head_], first_segment * sizeof(T));
         std::size_t second_segment = n - first_segment;
-        for (std::size_t i = 0; i < second_segment; ++i) {
-            data[first_segment + i] = std::move(buffer_[i]);
+        if (second_segment > 0) {
+            std::memcpy(data + first_segment, &buffer_[0], second_segment * sizeof(T));
         }
         head_ = (head_ + n) % Capacity;
 
@@ -388,12 +384,10 @@ public:
             std::size_t can = (size_unlocked() < remaining) ? size_unlocked() : remaining;
             std::size_t first_segment = (can < (Capacity - head_)) ? can : (Capacity - head_);
 
-            for (std::size_t i = 0; i < first_segment; ++i) {
-                data[total + i] = std::move(buffer_[head_ + i]);
-            }
+            std::memcpy(data + total, &buffer_[head_], first_segment * sizeof(T));
             std::size_t second_segment = can - first_segment;
-            for (std::size_t i = 0; i < second_segment; ++i) {
-                data[total + first_segment + i] = std::move(buffer_[i]);
+            if (second_segment > 0) {
+                std::memcpy(data + total + first_segment, &buffer_[0], second_segment * sizeof(T));
             }
             head_ = (head_ + can) % Capacity;
             total += can;
