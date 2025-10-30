@@ -161,6 +161,36 @@ std::cout << "Queue empty: " << consumer.empty() << std::endl;
 // consumer.try_enqueue(42);  // Error: Sink has no such method
 ```
 
+### MutexQueue
+
+A mutex-based circular buffer queue providing an API surface compatible with SPSC.
+Uses `std::mutex` and `std::condition_variable` for synchronization. Suitable for
+scenarios where lock-free guarantees are not required, or where portability and
+simplicity are prioritized over maximum performance.
+
+**Key differences from SPSC:**
+- Uses mutex-based synchronization instead of lock-free atomics
+- Capacity can be any value > 1 (no power-of-two requirement)
+- Reserves one slot to distinguish full from empty (max occupancy = Capacity - 1)
+- Blocking operations use condition variables for efficient waiting
+
+**Usage:**
+
+```cpp
+#include <qbuf/mutex_queue.hpp>
+
+qbuf::MutexQueue<int, 256> queue;
+qbuf::MutexSink<int, 256> producer(queue);
+qbuf::MutexSource<int, 256> consumer(queue);
+
+// Same API as SPSC
+producer.try_enqueue(42);
+auto value = consumer.try_dequeue();
+```
+
+The API methods (`try_enqueue`, `enqueue`, `try_dequeue`, `dequeue`, `empty()`, `size()`)
+are identical to SPSC. See the SPSC API overview below for complete method signatures.
+
 ### API Overview
 
 #### Single Element Blocking Operations

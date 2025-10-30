@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <qbuf/mutex_queue.hpp>
 #include <qbuf/spsc.hpp>
 #include <thread>
 #include <vector>
@@ -129,23 +130,124 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
 }
 
+// Benchmark: Individual enqueue/dequeue operations (MutexQueue)
+template <std::size_t Capacity>
+void benchmark_individual_ops_mutex(int iterations, int batch_size) {
+    std::cout << "\n=== Benchmark: Individual Operations (MutexQueue) ===" << std::endl;
+    std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
+
+    MutexQueue<int, Capacity> queue;
+    MutexSink<int, Capacity> sink(queue);
+    MutexSource<int, Capacity> source(queue);
+
+    // Producer thread
+    Timer timer;
+    std::thread producer([&sink, iterations, batch_size]() {
+        for (int iter = 0; iter < iterations; ++iter) {
+            for (int i = 0; i < batch_size; ++i) {
+                while (!sink.try_enqueue(iter * batch_size + i)) {
+                    std::this_thread::yield();
+                }
+            }
+        }
+    });
+
+    // Consumer thread
+    std::thread consumer([&source, iterations, batch_size]() {
+        int total_consumed = 0;
+        int target = iterations * batch_size;
+        while (total_consumed < target) {
+            auto value = source.try_dequeue();
+            if (value.has_value()) {
+                ++total_consumed;
+            } else {
+                std::this_thread::yield();
+            }
+        }
+    });
+
+    producer.join();
+    consumer.join();
+
+    double elapsed = timer.elapsed_us();
+    double ops_per_sec = (iterations * batch_size * 2.0) / (elapsed / 1e6);
+
+    std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
+    std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
+    std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+}
+
+// Benchmark: Bulk enqueue/dequeue operations (MutexQueue)
+template <std::size_t Capacity>
+void benchmark_bulk_ops_mutex(int iterations, int batch_size) {
+    std::cout << "\n=== Benchmark: Bulk Operations (MutexQueue) ===" << std::endl;
+    std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
+
+    MutexQueue<int, Capacity> queue;
+    MutexSink<int, Capacity> sink(queue);
+    MutexSource<int, Capacity> source(queue);
+
+    // Producer thread
+    Timer timer;
+    std::thread producer([&sink, iterations, batch_size]() {
+        std::vector<int> batch(batch_size);
+        for (int iter = 0; iter < iterations; ++iter) {
+            for (int i = 0; i < batch_size; ++i) {
+                batch[i] = iter * batch_size + i;
+            }
+            std::size_t enqueued = 0;
+            while (enqueued < batch_size) {
+                enqueued += sink.try_enqueue(batch.data() + enqueued, batch_size - enqueued);
+                if (enqueued < batch_size) {
+                    std::this_thread::yield();
+                }
+            }
+        }
+    });
+
+    // Consumer thread
+    std::thread consumer([&source, iterations, batch_size]() {
+        std::vector<int> batch(batch_size);
+        int total_consumed = 0;
+        int target = iterations * batch_size;
+        while (total_consumed < target) {
+            std::size_t dequeued = source.try_dequeue(batch.data(), batch_size);
+            total_consumed += dequeued;
+            if (dequeued == 0) {
+                std::this_thread::yield();
+            }
+        }
+    });
+
+    producer.join();
+    consumer.join();
+
+    double elapsed = timer.elapsed_us();
+    double ops_per_sec = (iterations * batch_size * 2.0) / (elapsed / 1e6);
+
+    std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
+    std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
+    std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+}
+
 // Benchmark with varying batch sizes
 void benchmark_comparison() {
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║           SPSC Performance Comparison                      ║" << std::endl;
+    std::cout << "║           SPSC vs MutexQueue Performance Comparison        ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
 
     std::vector<std::pair<int, int>> configs = {
-        { 100000, 1 }, // Many individual ops
-        { 10000, 10 }, // Small batches
-        { 5000, 20 }, // Medium batches
-        { 1000, 100 }, // Large batches
-        { 500, 200 }, // Very large batches
+        { 1000000, 1 }, // Many individual ops
+        { 100000, 10 }, // Small batches
+        { 10000, 100 }, // Medium batches
+        { 1000, 1000 }, // Large batches
+        { 100, 10000 }, // Very large batches
     };
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
-    std::cout << "│ Config: 10k total ops, varied batch sizes                   │" << std::endl;
+    std::cout << "│ Config: varied batch sizes                                  │" << std::endl;
     std::cout << "│ Queue capacity: 64                                          │" << std::endl;
+    std::cout << "│ Implementation: SPSC (lock-free)                            │" << std::endl;
     std::cout << "└─────────────────────────────────────────────────────────────┘" << std::endl;
 
     for (const auto& [iterations, batch_size] : configs) {
@@ -159,8 +261,25 @@ void benchmark_comparison() {
     }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
-    std::cout << "│ Config: 10k total ops, varied batch sizes                   │" << std::endl;
+    std::cout << "│ Config: varied batch sizes                                  │" << std::endl;
+    std::cout << "│ Queue capacity: 64                                          │" << std::endl;
+    std::cout << "│ Implementation: MutexQueue                                  │" << std::endl;
+    std::cout << "└─────────────────────────────────────────────────────────────┘" << std::endl;
+
+    for (const auto& [iterations, batch_size] : configs) {
+        std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size
+                  << " batch size" << std::endl;
+        std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
+
+        benchmark_individual_ops_mutex<64>(iterations, batch_size);
+        benchmark_bulk_ops_mutex<64>(iterations, batch_size);
+    }
+
+    std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
+    std::cout << "│ Config: varied batch sizes                                  │" << std::endl;
     std::cout << "│ Queue capacity: 4096                                        │" << std::endl;
+    std::cout << "│ Implementation: SPSC (lock-free)                            │" << std::endl;
     std::cout << "└─────────────────────────────────────────────────────────────┘" << std::endl;
 
     for (const auto& [iterations, batch_size] : configs) {
@@ -173,13 +292,29 @@ void benchmark_comparison() {
         benchmark_bulk_ops<4096>(iterations, batch_size);
     }
 
+    std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
+    std::cout << "│ Config: varied batch sizes                                  │" << std::endl;
+    std::cout << "│ Queue capacity: 4096                                        │" << std::endl;
+    std::cout << "│ Implementation: MutexQueue                                  │" << std::endl;
+    std::cout << "└─────────────────────────────────────────────────────────────┘" << std::endl;
+
+    for (const auto& [iterations, batch_size] : configs) {
+        std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size
+                  << " batch size" << std::endl;
+        std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
+
+        benchmark_individual_ops_mutex<4096>(iterations, batch_size);
+        benchmark_bulk_ops_mutex<4096>(iterations, batch_size);
+    }
+
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
     std::cout << "║                    Benchmark Complete                      ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
 }
 
 int main() {
-    std::cout << "SPSC Benchmark: Individual vs Bulk Operations\n" << std::endl;
+    std::cout << "Queue Performance Benchmark: SPSC vs MutexQueue\n" << std::endl;
 
     benchmark_comparison();
 
