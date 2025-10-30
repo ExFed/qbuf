@@ -32,14 +32,12 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Install Dev Environment
-      working-directory: cpp
       run: |
         set -euo pipefail
         guix pull -C channels.scm
         guix package -m manifest.scm
 
     - name: Check C++ code formatting
-      working-directory: cpp
       run: |
         set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
@@ -48,7 +46,6 @@ jobs:
         EOF
 
     - name: Build & Test
-      working-directory: cpp
       run: |
         set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
