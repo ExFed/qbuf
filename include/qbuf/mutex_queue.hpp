@@ -247,70 +247,78 @@ private:
     friend class Source;
 
     bool try_enqueue(const T& value) {
-        std::lock_guard lk(mtx_);
-        if (full_unlocked()) return false;
-        buffer_[tail_] = value;
-        tail_ = next(tail_);
+        {
+            std::lock_guard lk(mtx_);
+            if (full_unlocked()) return false;
+            buffer_[tail_] = value;
+            tail_ = next(tail_);
+        }
         cv_not_empty_.notify_one();
         return true;
     }
 
     bool try_enqueue(T&& value) {
-        std::lock_guard lk(mtx_);
-        if (full_unlocked()) return false;
-        buffer_[tail_] = std::move(value);
-        tail_ = next(tail_);
+        {
+            std::lock_guard lk(mtx_);
+            if (full_unlocked()) return false;
+            buffer_[tail_] = std::move(value);
+            tail_ = next(tail_);
+        }
         cv_not_empty_.notify_one();
         return true;
     }
 
     std::size_t try_enqueue(const T* data, std::size_t count) {
         if (count == 0) return 0;
-        std::lock_guard lk(mtx_);
-        const std::size_t free = free_unlocked();
-        std::size_t n = (free < count) ? free : count;
-        if (n == 0) return 0;
+        std::size_t n;
+        {
+            std::lock_guard lk(mtx_);
+            const std::size_t free = free_unlocked();
+            n = (free < count) ? free : count;
+            if (n == 0) return 0;
 
-        std::size_t first_segment = (n < (Capacity - tail_)) ? n : (Capacity - tail_);
-        std::memcpy(&buffer_[tail_], data, first_segment * sizeof(T));
-        std::size_t second_segment = n - first_segment;
-        if (second_segment > 0) {
-            std::memcpy(&buffer_[0], data + first_segment, second_segment * sizeof(T));
+            std::size_t first_segment = (n < (Capacity - tail_)) ? n : (Capacity - tail_);
+            std::memcpy(&buffer_[tail_], data, first_segment * sizeof(T));
+            std::size_t second_segment = n - first_segment;
+            if (second_segment > 0) {
+                std::memcpy(&buffer_[0], data + first_segment, second_segment * sizeof(T));
+            }
+            tail_ = (tail_ + n) % Capacity;
         }
-        tail_ = (tail_ + n) % Capacity;
-
         cv_not_empty_.notify_one();
         return n;
     }
 
     template <typename Rep, typename Period>
     bool enqueue(const T& value, std::chrono::duration<Rep, Period> timeout) {
-        std::unique_lock lk(mtx_);
-        auto deadline = std::chrono::steady_clock::now() + timeout;
-        while (full_unlocked()) {
-            if (cv_not_full_.wait_until(lk, deadline) == std::cv_status::timeout) {
-                return false;
+        {
+            std::unique_lock lk(mtx_);
+            auto deadline = std::chrono::steady_clock::now() + timeout;
+            while (full_unlocked()) {
+                if (cv_not_full_.wait_until(lk, deadline) == std::cv_status::timeout) {
+                    return false;
+                }
             }
+            buffer_[tail_] = value;
+            tail_ = next(tail_);
         }
-        buffer_[tail_] = value;
-        tail_ = next(tail_);
-        lk.unlock();
         cv_not_empty_.notify_one();
         return true;
     }
 
     template <typename Rep, typename Period>
     bool enqueue(T&& value, std::chrono::duration<Rep, Period> timeout) {
-        std::unique_lock lk(mtx_);
-        auto deadline = std::chrono::steady_clock::now() + timeout;
-        while (full_unlocked()) {
-            if (cv_not_full_.wait_until(lk, deadline) == std::cv_status::timeout) {
-                return false;
+        {
+            std::unique_lock lk(mtx_);
+            auto deadline = std::chrono::steady_clock::now() + timeout;
+            while (full_unlocked()) {
+                if (cv_not_full_.wait_until(lk, deadline) == std::cv_status::timeout) {
+                    return false;
+                }
             }
+            buffer_[tail_] = std::move(value);
+            tail_ = next(tail_);
         }
-        buffer_[tail_] = std::move(value);
-        tail_ = next(tail_);
-        lk.unlock();
         cv_not_empty_.notify_one();
         return true;
     }
@@ -319,74 +327,84 @@ private:
     bool enqueue(const T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
         if (count == 0) return true;
 
-        std::unique_lock lk(mtx_);
         auto deadline = std::chrono::steady_clock::now() + timeout;
         std::size_t total = 0;
 
         while (total < count) {
-            while (free_unlocked() == 0) {
-                if (cv_not_full_.wait_until(lk, deadline) == std::cv_status::timeout) {
-                    return false;
+            {
+                std::unique_lock lk(mtx_);
+                while (free_unlocked() == 0) {
+                    if (cv_not_full_.wait_until(lk, deadline) == std::cv_status::timeout) {
+                        return false;
+                    }
                 }
+
+                std::size_t remaining = count - total;
+                std::size_t can = (free_unlocked() < remaining) ? free_unlocked() : remaining;
+                std::size_t first_segment = (can < (Capacity - tail_)) ? can : (Capacity - tail_);
+
+                std::memcpy(&buffer_[tail_], data + total, first_segment * sizeof(T));
+                std::size_t second_segment = can - first_segment;
+                if (second_segment > 0) {
+                    std::memcpy(
+                        &buffer_[0], data + total + first_segment, second_segment * sizeof(T)
+                    );
+                }
+                tail_ = (tail_ + can) % Capacity;
+                total += can;
             }
-
-            std::size_t remaining = count - total;
-            std::size_t can = (free_unlocked() < remaining) ? free_unlocked() : remaining;
-            std::size_t first_segment = (can < (Capacity - tail_)) ? can : (Capacity - tail_);
-
-            std::memcpy(&buffer_[tail_], data + total, first_segment * sizeof(T));
-            std::size_t second_segment = can - first_segment;
-            if (second_segment > 0) {
-                std::memcpy(&buffer_[0], data + total + first_segment, second_segment * sizeof(T));
-            }
-            tail_ = (tail_ + can) % Capacity;
-            total += can;
-
             cv_not_empty_.notify_one();
         }
         return true;
     }
 
     std::optional<T> try_dequeue() {
-        std::lock_guard lk(mtx_);
-        if (head_ == tail_) return std::nullopt;
-        T value = std::move(buffer_[head_]);
-        head_ = next(head_);
+        T value;
+        {
+            std::lock_guard lk(mtx_);
+            if (head_ == tail_) return std::nullopt;
+            value = std::move(buffer_[head_]);
+            head_ = next(head_);
+        }
         cv_not_full_.notify_one();
         return value;
     }
 
     std::size_t try_dequeue(T* data, std::size_t count) {
         if (count == 0) return 0;
-        std::lock_guard lk(mtx_);
-        std::size_t avail = size_unlocked();
-        std::size_t n = (avail < count) ? avail : count;
-        if (n == 0) return 0;
+        std::size_t n;
+        {
+            std::lock_guard lk(mtx_);
+            std::size_t avail = size_unlocked();
+            n = (avail < count) ? avail : count;
+            if (n == 0) return 0;
 
-        std::size_t first_segment = (n < (Capacity - head_)) ? n : (Capacity - head_);
-        std::memcpy(data, &buffer_[head_], first_segment * sizeof(T));
-        std::size_t second_segment = n - first_segment;
-        if (second_segment > 0) {
-            std::memcpy(data + first_segment, &buffer_[0], second_segment * sizeof(T));
+            std::size_t first_segment = (n < (Capacity - head_)) ? n : (Capacity - head_);
+            std::memcpy(data, &buffer_[head_], first_segment * sizeof(T));
+            std::size_t second_segment = n - first_segment;
+            if (second_segment > 0) {
+                std::memcpy(data + first_segment, &buffer_[0], second_segment * sizeof(T));
+            }
+            head_ = (head_ + n) % Capacity;
         }
-        head_ = (head_ + n) % Capacity;
-
         cv_not_full_.notify_one();
         return n;
     }
 
     template <typename Rep, typename Period>
     std::optional<T> dequeue(std::chrono::duration<Rep, Period> timeout) {
-        std::unique_lock lk(mtx_);
-        auto deadline = std::chrono::steady_clock::now() + timeout;
-        while (head_ == tail_) {
-            if (cv_not_empty_.wait_until(lk, deadline) == std::cv_status::timeout) {
-                return std::nullopt;
+        T value;
+        {
+            std::unique_lock lk(mtx_);
+            auto deadline = std::chrono::steady_clock::now() + timeout;
+            while (head_ == tail_) {
+                if (cv_not_empty_.wait_until(lk, deadline) == std::cv_status::timeout) {
+                    return std::nullopt;
+                }
             }
+            value = std::move(buffer_[head_]);
+            head_ = next(head_);
         }
-        T value = std::move(buffer_[head_]);
-        head_ = next(head_);
-        lk.unlock();
         cv_not_full_.notify_one();
         return value;
     }
@@ -395,29 +413,32 @@ private:
     std::size_t dequeue(T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
         if (count == 0) return 0;
 
-        std::unique_lock lk(mtx_);
         auto deadline = std::chrono::steady_clock::now() + timeout;
         std::size_t total = 0;
 
         while (total < count) {
-            while (size_unlocked() == 0) {
-                if (cv_not_empty_.wait_until(lk, deadline) == std::cv_status::timeout) {
-                    return total;
+            {
+                std::unique_lock lk(mtx_);
+                while (size_unlocked() == 0) {
+                    if (cv_not_empty_.wait_until(lk, deadline) == std::cv_status::timeout) {
+                        return total;
+                    }
                 }
+
+                std::size_t remaining = count - total;
+                std::size_t can = (size_unlocked() < remaining) ? size_unlocked() : remaining;
+                std::size_t first_segment = (can < (Capacity - head_)) ? can : (Capacity - head_);
+
+                std::memcpy(data + total, &buffer_[head_], first_segment * sizeof(T));
+                std::size_t second_segment = can - first_segment;
+                if (second_segment > 0) {
+                    std::memcpy(
+                        data + total + first_segment, &buffer_[0], second_segment * sizeof(T)
+                    );
+                }
+                head_ = (head_ + can) % Capacity;
+                total += can;
             }
-
-            std::size_t remaining = count - total;
-            std::size_t can = (size_unlocked() < remaining) ? size_unlocked() : remaining;
-            std::size_t first_segment = (can < (Capacity - head_)) ? can : (Capacity - head_);
-
-            std::memcpy(data + total, &buffer_[head_], first_segment * sizeof(T));
-            std::size_t second_segment = can - first_segment;
-            if (second_segment > 0) {
-                std::memcpy(data + total + first_segment, &buffer_[0], second_segment * sizeof(T));
-            }
-            head_ = (head_ + can) % Capacity;
-            total += can;
-
             cv_not_full_.notify_one();
         }
         return total;
