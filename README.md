@@ -75,11 +75,12 @@ and both blocking and non-blocking variants.
 ```cpp
 #include <qbuf/spsc.hpp>
 
-qbuf::SPSC<int, 256> queue;
+// Create a queue with sink and source handles
+auto [sink, source] = qbuf::SPSC<int, 256>::make_queue();
 
 // Non-blocking single element operations
-if (queue.try_enqueue(42)) {
-    auto value = queue.try_dequeue();
+if (sink.try_enqueue(42)) {
+    auto value = source.try_dequeue();
     if (value) {
         std::cout << *value << std::endl;
     }
@@ -87,8 +88,8 @@ if (queue.try_enqueue(42)) {
 
 // Blocking single element operations with timeout
 using namespace std::chrono_literals;
-if (queue.enqueue(42, 1s)) {  // Blocks up to 1 second
-    auto value = queue.dequeue(1s);  // Blocks up to 1 second
+if (sink.enqueue(42, 1s)) {  // Blocks up to 1 second
+    auto value = source.dequeue(1s);  // Blocks up to 1 second
     if (value) {
         std::cout << *value << std::endl;
     }
@@ -96,69 +97,65 @@ if (queue.enqueue(42, 1s)) {  // Blocks up to 1 second
 
 // Non-blocking bulk operations (partial results OK, returns count)
 std::vector<int> buff(100);
-std::size_t enqueued = queue.try_enqueue(buff.data(), buff.size());
+std::size_t enqueued = sink.try_enqueue(buff.data(), buff.size());
 std::vector<int> output(100);
-std::size_t dequeued = queue.try_dequeue(output.data(), 100);
+std::size_t dequeued = source.try_dequeue(output.data(), 100);
 
 // Blocking bulk operations with timeout (entire buff guaranteed or timeout)
-std::vector<int> buff(100);
-if (queue.enqueue(buff.data(), buff.size(), 1s)) {  // Blocks up to 1 second
-    std::vector<int> output(100);
-    std::size_t dequeued = queue.dequeue(output.data(), 100, 1s);  // Blocks up to 1 second
+std::vector<int> buff2(100);
+if (sink.enqueue(buff2.data(), buff2.size(), 1s)) {  // Blocks up to 1 second
+    std::vector<int> output2(100);
+    std::size_t dequeued2 = source.dequeue(output2.data(), 100, 1s);  // Blocks up to 1 second
 }
 ```
 
 #### Sink and Source Handles
 
-For type-safe producer-consumer patterns, use `Sink` and `Source` to expose only
-the appropriate operations for each role:
+The `make_queue()` factory method returns a pair of handles (`Sink` and `Source`)
+that expose only the appropriate operations for each role. The handles own a
+shared pointer to the underlying queue:
 
 ```cpp
 #include <qbuf/spsc.hpp>
 
-qbuf::SPSC<int, 256> queue;
-
-// Create handles from the same queue
-qbuf::Sink<int, 256> producer(queue);
-qbuf::Source<int, 256> consumer(queue);
+// Create queue with handles
+auto [sink, source] = qbuf::SPSC<int, 256>::make_queue();
 
 using namespace std::chrono_literals;
 
-// Producer can only enqueue...
+// Sink can only enqueue...
 {
     // single element, non-blocking
-    if (producer.try_enqueue(42)) {
+    if (sink.try_enqueue(42)) {
         std::cout << "Non-blocking enqueued 42" << std::endl;
     }
 
     // single element, blocks up to 1 second
-    if (producer.enqueue(1337, 1s)) {
+    if (sink.enqueue(1337, 1s)) {
         std::cout << "Blocking enqueued 1337" << std::endl;
     }
 
     // bulk, non-blocking
     std::vector<int> buff(100);
-    std::size_t nb_elems = producer.try_enqueue(buff.data(), buff.size());
+    std::size_t nb_elems = sink.try_enqueue(buff.data(), buff.size());
     std::cout << "Non-blocking elements enqueued: " << nb_elems << std::endl;
 
     // bulk, blocks up to 1 second
-    std::size_t b_elems = producer.enqueue(buff.data(), buff.size(), 1s);
-    std::cout << "Blocking elements enqueued: " << b_elems << std::endl;
+    std::vector<int> buff2(100);
+    bool ok = sink.enqueue(buff2.data(), buff2.size(), 1s);
+    std::cout << "Blocking enqueue success: " << ok << std::endl;
 
-    std::cout << "Queue size: " << producer.size() << std::endl;
+    std::cout << "Queue size: " << sink.size() << std::endl;
 }
 
-// Bulk enqueue with timeout (all or timeout)
-bool ok = producer.enqueue(buff.data(), buff.size(), 1s);
-
-// Consumer can only dequeue
-auto value = consumer.try_dequeue();
-auto value2 = consumer.dequeue(1s); // blocks up to 1 second
-std::cout << "Queue empty: " << consumer.empty() << std::endl;
+// Source can only dequeue
+auto value = source.try_dequeue();
+auto value2 = source.dequeue(1s); // blocks up to 1 second
+std::cout << "Queue empty: " << source.empty() << std::endl;
 
 // Compile error - type checking prevents misuse:
-// producer.try_dequeue();  // Error: Source has no such method
-// consumer.try_enqueue(42);  // Error: Sink has no such method
+// sink.try_dequeue();  // Error: Sink has no such method
+// source.try_enqueue(42);  // Error: Source has no such method
 ```
 
 ### MutexQueue
@@ -179,17 +176,16 @@ simplicity are prioritized over maximum performance.
 ```cpp
 #include <qbuf/mutex_queue.hpp>
 
-qbuf::MutexQueue<int, 256> queue;
-qbuf::MutexSink<int, 256> producer(queue);
-qbuf::MutexSource<int, 256> consumer(queue);
+// Create a queue with sink and source handles
+auto [sink, source] = qbuf::MutexQueue<int, 256>::make_queue();
 
 // Same API as SPSC
-producer.try_enqueue(42);
-auto value = consumer.try_dequeue();
+sink.try_enqueue(42);
+auto value = source.try_dequeue();
 ```
 
 The API methods (`try_enqueue`, `enqueue`, `try_dequeue`, `dequeue`, `empty()`, `size()`)
-are identical to SPSC. See the SPSC API overview below for complete method signatures.
+are identical to SPSC. See the SPSC examples and API overview below for complete method signatures.
 
 ### API Overview
 

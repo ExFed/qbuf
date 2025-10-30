@@ -132,9 +132,7 @@ void benchmark_individual_ops_mutex(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations (MutexQueue) ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    MutexQueue<int, Capacity> queue;
-    MutexSink<int, Capacity> sink(queue);
-    MutexSource<int, Capacity> source(queue);
+    auto [sink, source] = MutexQueue<int, Capacity>::make_queue();
 
     // Producer thread
     Timer timer;
@@ -179,9 +177,7 @@ void benchmark_bulk_ops_mutex(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations (MutexQueue) ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
-    MutexQueue<int, Capacity> queue;
-    MutexSink<int, Capacity> sink(queue);
-    MutexSource<int, Capacity> source(queue);
+    auto [sink, source] = MutexQueue<int, Capacity>::make_queue();
 
     // Producer thread
     Timer timer;

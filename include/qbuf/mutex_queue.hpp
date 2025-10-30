@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <utility>
@@ -27,10 +28,12 @@ class MutexQueue {
 public:
     static_assert(Capacity > 1, "Queue capacity must be greater than 1");
 
+private:
     MutexQueue()
         : head_(0)
         , tail_(0) { }
 
+public:
     MutexQueue(const MutexQueue&) = delete;
     MutexQueue& operator=(const MutexQueue&) = delete;
     MutexQueue(MutexQueue&&) = delete;
@@ -63,8 +66,8 @@ public:
      */
     class Sink {
     public:
-        explicit Sink(MutexQueue& q)
-            : queue_(q) { }
+        explicit Sink(std::shared_ptr<MutexQueue<T, Capacity>> queue)
+            : queue_(queue) { }
 
         Sink(const Sink&) = delete;
         Sink& operator=(const Sink&) = delete;
@@ -77,7 +80,7 @@ public:
          * @param value The value to enqueue
          * @return true if successful, false if queue is full
          */
-        bool try_enqueue(const T& value) { return queue_.try_enqueue(value); }
+        bool try_enqueue(const T& value) { return queue_->try_enqueue(value); }
 
         /**
          * @brief Try to enqueue a single element (move semantics)
@@ -85,7 +88,7 @@ public:
          * @param value The value to enqueue
          * @return true if successful, false if queue is full
          */
-        bool try_enqueue(T&& value) { return queue_.try_enqueue(std::move(value)); }
+        bool try_enqueue(T&& value) { return queue_->try_enqueue(std::move(value)); }
 
         /**
          * @brief Try to enqueue multiple elements
@@ -95,7 +98,7 @@ public:
          * @return Number of elements successfully enqueued
          */
         std::size_t try_enqueue(const T* data, std::size_t count) {
-            return queue_.try_enqueue(data, count);
+            return queue_->try_enqueue(data, count);
         }
 
         /**
@@ -109,7 +112,7 @@ public:
          */
         template <typename Rep, typename Period>
         bool enqueue(const T& value, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(value, timeout);
+            return queue_->enqueue(value, timeout);
         }
 
         /**
@@ -123,7 +126,7 @@ public:
          */
         template <typename Rep, typename Period>
         bool enqueue(T&& value, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(std::move(value), timeout);
+            return queue_->enqueue(std::move(value), timeout);
         }
 
         /**
@@ -138,14 +141,14 @@ public:
          */
         template <typename Rep, typename Period>
         bool enqueue(const T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(data, count, timeout);
+            return queue_->enqueue(data, count, timeout);
         }
 
-        bool empty() const { return queue_.empty(); }
-        std::size_t size() const { return queue_.size(); }
+        bool empty() const { return queue_->empty(); }
+        std::size_t size() const { return queue_->size(); }
 
     private:
-        MutexQueue& queue_;
+        std::shared_ptr<MutexQueue<T, Capacity>> queue_;
     };
 
     /**
@@ -155,8 +158,8 @@ public:
      */
     class Source {
     public:
-        explicit Source(MutexQueue& q)
-            : queue_(q) { }
+        explicit Source(std::shared_ptr<MutexQueue<T, Capacity>> queue)
+            : queue_(queue) { }
 
         Source(const Source&) = delete;
         Source& operator=(const Source&) = delete;
@@ -169,7 +172,7 @@ public:
          * @return std::optional containing the element if successful, std::nullopt if queue is
          * empty
          */
-        std::optional<T> try_dequeue() { return queue_.try_dequeue(); }
+        std::optional<T> try_dequeue() { return queue_->try_dequeue(); }
 
         /**
          * @brief Try to dequeue multiple elements
@@ -179,7 +182,7 @@ public:
          * @return Number of elements successfully dequeued
          */
         std::size_t try_dequeue(T* data, std::size_t count) {
-            return queue_.try_dequeue(data, count);
+            return queue_->try_dequeue(data, count);
         }
 
         /**
@@ -193,7 +196,7 @@ public:
          */
         template <typename Rep, typename Period>
         std::optional<T> dequeue(std::chrono::duration<Rep, Period> timeout) {
-            return queue_.dequeue(timeout);
+            return queue_->dequeue(timeout);
         }
 
         /**
@@ -210,15 +213,33 @@ public:
         std::size_t dequeue(
             T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout
         ) {
-            return queue_.dequeue(data, count, timeout);
+            return queue_->dequeue(data, count, timeout);
         }
 
-        bool empty() const { return queue_.empty(); }
-        std::size_t size() const { return queue_.size(); }
+        bool empty() const { return queue_->empty(); }
+        std::size_t size() const { return queue_->size(); }
 
     private:
-        MutexQueue& queue_;
+        std::shared_ptr<MutexQueue<T, Capacity>> queue_;
     };
+
+    /**
+     * @brief Factory method to create a queue with sink and source handles
+     *
+     * This is the way to create a MutexQueue. It returns a pair of handles
+     * (Sink, Source) that can be used by producer and consumer threads
+     * respectively.
+     *
+     * @return std::pair<Sink, Source> A pair of producer and consumer handles
+     */
+    static std::pair<Sink, Source> make_queue() {
+        std::shared_ptr<MutexQueue> queue(new MutexQueue<T, Capacity>());
+        return { Sink(queue), Source(queue) };
+    }
+
+private:
+    friend class Sink;
+    friend class Source;
 
     bool try_enqueue(const T& value) {
         std::lock_guard lk(mtx_);
