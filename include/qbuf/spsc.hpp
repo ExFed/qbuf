@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <thread>
 
@@ -25,36 +26,18 @@ public:
     static_assert(Capacity > 0, "Queue capacity must be greater than 0");
     static_assert((Capacity & (Capacity - 1)) == 0, "Queue capacity must be a power of 2");
 
+private:
     SPSC()
         : head_(0)
         , tail_(0) { }
 
+public:
     // non-copyable
     SPSC(const SPSC&) = delete;
     SPSC& operator=(const SPSC&) = delete;
     // non-movable
     SPSC(SPSC&&) = delete;
     SPSC& operator=(SPSC&&) = delete;
-
-    /**
-     * @brief Check if the queue is empty
-     *
-     * @return true if empty, false otherwise
-     */
-    bool empty() const {
-        return head_.load(std::memory_order_acquire) == tail_.load(std::memory_order_acquire);
-    }
-
-    /**
-     * @brief Get approximate size of the queue
-     *
-     * @return Approximate number of elements in the queue
-     */
-    std::size_t size() const {
-        const auto head = head_.load(std::memory_order_acquire);
-        const auto tail = tail_.load(std::memory_order_acquire);
-        return (tail >= head) ? (tail - head) : (Capacity - head + tail);
-    }
 
     /**
      * @brief Producer-side handle for SPSC queue
@@ -64,7 +47,7 @@ public:
      */
     class Sink {
     public:
-        Sink(SPSC<T, Capacity>& queue)
+        explicit Sink(std::shared_ptr<SPSC<T, Capacity>> queue)
             : queue_(queue) { }
 
         // Non-copyable. Move constructible (reference is re-bound to the same queue)
@@ -80,7 +63,7 @@ public:
          * @param value The value to enqueue
          * @return true if successful, false if queue is full
          */
-        bool try_enqueue(const T& value) { return queue_.try_enqueue(value); }
+        bool try_enqueue(const T& value) { return queue_->try_enqueue(value); }
 
         /**
          * @brief Try to enqueue a single element (move semantics)
@@ -88,7 +71,7 @@ public:
          * @param value The value to enqueue
          * @return true if successful, false if queue is full
          */
-        bool try_enqueue(T&& value) { return queue_.try_enqueue(std::move(value)); }
+        bool try_enqueue(T&& value) { return queue_->try_enqueue(std::move(value)); }
 
         /**
          * @brief Try to enqueue multiple elements
@@ -98,7 +81,7 @@ public:
          * @return Number of elements successfully enqueued
          */
         std::size_t try_enqueue(const T* data, std::size_t count) {
-            return queue_.try_enqueue(data, count);
+            return queue_->try_enqueue(data, count);
         }
 
         /**
@@ -112,7 +95,7 @@ public:
          */
         template <typename Rep, typename Period>
         bool enqueue(const T& value, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(value, timeout);
+            return queue_->enqueue(value, timeout);
         }
 
         /**
@@ -126,7 +109,7 @@ public:
          */
         template <typename Rep, typename Period>
         bool enqueue(T&& value, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(std::move(value), timeout);
+            return queue_->enqueue(std::move(value), timeout);
         }
 
         /**
@@ -141,7 +124,7 @@ public:
          */
         template <typename Rep, typename Period>
         bool enqueue(const T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.enqueue(data, count, timeout);
+            return queue_->enqueue(data, count, timeout);
         }
 
         /**
@@ -149,17 +132,17 @@ public:
          *
          * @return true if empty, false otherwise
          */
-        bool empty() const { return queue_.empty(); }
+        bool empty() const { return queue_->empty(); }
 
         /**
          * @brief Get approximate size of the queue
          *
          * @return Approximate number of elements in the queue
          */
-        std::size_t size() const { return queue_.size(); }
+        std::size_t size() const { return queue_->size(); }
 
     private:
-        SPSC<T, Capacity>& queue_;
+        std::shared_ptr<SPSC<T, Capacity>> queue_;
     };
 
     /**
@@ -170,7 +153,7 @@ public:
      */
     class Source {
     public:
-        Source(SPSC<T, Capacity>& queue)
+        explicit Source(std::shared_ptr<SPSC<T, Capacity>> queue)
             : queue_(queue) { }
 
         // Non-copyable. Move constructible (reference is re-bound to the same queue)
@@ -185,7 +168,7 @@ public:
          *
          * @return std::optional containing the value if successful, std::nullopt if queue is empty
          */
-        std::optional<T> try_dequeue() { return queue_.try_dequeue(); }
+        std::optional<T> try_dequeue() { return queue_->try_dequeue(); }
 
         /**
          * @brief Try to dequeue multiple elements
@@ -195,7 +178,7 @@ public:
          * @return Number of elements successfully dequeued
          */
         std::size_t try_dequeue(T* data, std::size_t count) {
-            return queue_.try_dequeue(data, count);
+            return queue_->try_dequeue(data, count);
         }
 
         /**
@@ -209,7 +192,7 @@ public:
          */
         template <typename Rep, typename Period>
         std::optional<T> dequeue(std::chrono::duration<Rep, Period> timeout) {
-            return queue_.dequeue(timeout);
+            return queue_->dequeue(timeout);
         }
 
         /**
@@ -224,8 +207,9 @@ public:
          */
         template <typename Rep, typename Period>
         std::size_t dequeue(
-            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
-            return queue_.dequeue(data, count, timeout);
+            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout
+        ) {
+            return queue_->dequeue(data, count, timeout);
         }
 
         /**
@@ -233,18 +217,32 @@ public:
          *
          * @return true if empty, false otherwise
          */
-        bool empty() const { return queue_.empty(); }
+        bool empty() const { return queue_->empty(); }
 
         /**
          * @brief Get approximate size of the queue
          *
          * @return Approximate number of elements in the queue
          */
-        std::size_t size() const { return queue_.size(); }
+        std::size_t size() const { return queue_->size(); }
 
     private:
-        SPSC<T, Capacity>& queue_;
+        std::shared_ptr<SPSC<T, Capacity>> queue_;
     };
+
+    /**
+     * @brief Factory method to create a queue with sink and source handles
+     *
+     * This is the way to create an SPSC queue. It returns a pair of handles
+     * (Sink, Source) that can be used by producer and consumer threads
+     * respectively.
+     *
+     * @return std::pair<Sink, Source> A pair of producer and consumer handles
+     */
+    static std::pair<Sink, Source> make_queue() {
+        std::shared_ptr<SPSC> queue(new SPSC<T, Capacity>());
+        return { Sink(queue), Source(queue) };
+    }
 
 private:
     friend class Sink;
@@ -570,16 +568,36 @@ private:
         return total_dequeued;
     }
 
+    /**
+     * @brief Check if the queue is empty
+     *
+     * @return true if empty, false otherwise
+     */
+    bool empty() const {
+        return head_.load(std::memory_order_acquire) == tail_.load(std::memory_order_acquire);
+    }
+
+    /**
+     * @brief Get approximate size of the queue
+     *
+     * @return Approximate number of elements in the queue
+     */
+    std::size_t size() const {
+        const auto head = head_.load(std::memory_order_acquire);
+        const auto tail = tail_.load(std::memory_order_acquire);
+        return (tail >= head) ? (tail - head) : (Capacity - head + tail);
+    }
+
     alignas(64) std::atomic<std::size_t> head_;
     alignas(64) std::atomic<std::size_t> tail_;
     std::array<T, Capacity> buffer_;
 };
 
 template <typename T, std::size_t Capacity>
-using SpscSource = SPSC<T, Capacity>::Source;
+using SpscSource = typename SPSC<T, Capacity>::Source;
 
 template <typename T, std::size_t Capacity>
-using SpscSink = SPSC<T, Capacity>::Sink;
+using SpscSink = typename SPSC<T, Capacity>::Sink;
 
 } // namespace qbuf
 #endif // QBUF_SPSC_HPP

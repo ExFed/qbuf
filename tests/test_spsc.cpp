@@ -11,9 +11,7 @@ using namespace qbuf;
 
 void test_basic_operations() {
     std::cout << "Testing basic operations..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Test empty queue
     affirm(queue_source.empty());
@@ -55,9 +53,7 @@ void test_basic_operations() {
 
 void test_queue_full() {
     std::cout << "Testing queue full condition..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Capacity is 8, but we can only store 7 elements (one slot reserved)
     for (int i = 0; i < 7; ++i) {
@@ -72,9 +68,7 @@ void test_queue_full() {
 
 void test_fifo_ordering() {
     std::cout << "Testing FIFO ordering..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     std::vector<int> input = { 10, 20, 30, 40, 50 };
     std::vector<int> output;
@@ -101,9 +95,7 @@ void test_fifo_ordering() {
 
 void test_move_semantics() {
     std::cout << "Testing move semantics..." << std::endl;
-    SPSC<std::string, 8> queue;
-    SpscSink<std::string, 8> queue_sink(queue);
-    SpscSource<std::string, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<std::string, 8>::make_queue();
 
     std::string str = "Hello, World!";
     affirm(queue_sink.try_enqueue(std::move(str)));
@@ -132,9 +124,7 @@ void test_move_semantics() {
 
 void test_concurrent() {
     std::cout << "Testing concurrent producer-consumer..." << std::endl;
-    SPSC<int, 256> queue;
-    SpscSink<int, 256> queue_sink(queue);
-    SpscSource<int, 256> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 256>::make_queue();
     constexpr int num_elements = 1000;
     std::atomic<bool> producer_done { false };
 
@@ -181,9 +171,7 @@ void test_concurrent() {
 
 void test_bulk_enqueue_dequeue() {
     std::cout << "Testing bulk enqueue/dequeue..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     std::vector<int> input = { 10, 20, 30, 40, 50, 60, 70, 80 };
     std::vector<int> output(input.size());
@@ -211,9 +199,7 @@ void test_bulk_enqueue_dequeue() {
 
 void test_bulk_partial() {
     std::cout << "Testing partial bulk operations..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     std::vector<int> input = { 1, 2, 3, 4, 5, 6, 7, 8 };
     std::vector<int> consumed_output;
@@ -252,9 +238,7 @@ void test_bulk_partial() {
 
 void test_bulk_full_queue() {
     std::cout << "Testing bulk enqueue on full queue..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     std::vector<int> input1 = { 1, 2, 3, 4, 5, 6 };
     std::vector<int> input2 = { 7, 8, 9, 10 };
@@ -273,9 +257,7 @@ void test_bulk_full_queue() {
 
 void test_bulk_empty_dequeue() {
     std::cout << "Testing bulk dequeue from empty queue..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     std::vector<int> output(10);
     affirm(queue_source.try_dequeue(output.data(), 10) == 0);
@@ -286,9 +268,7 @@ void test_bulk_empty_dequeue() {
 
 void test_bulk_wrap_around() {
     std::cout << "Testing bulk operations with wrap-around..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Fill, partially consume, then fill again to create wrap-around
     std::vector<int> batch1 = { 1, 2, 3, 4 };
@@ -312,8 +292,9 @@ void test_bulk_wrap_around() {
     affirm(queue_source.size() == 4);
 
     // Enqueue another batch (this should handle wrap-around)
-    affirm(queue_sink.try_enqueue(batch3.data(), batch3.size())
-        == 3); // Can only fit 3 more (capacity is 8, 1 reserved)
+    affirm(
+        queue_sink.try_enqueue(batch3.data(), batch3.size()) == 3
+    ); // Can only fit 3 more (capacity is 8, 1 reserved)
 
     // Dequeue all
     std::vector<int> final_output(7);
@@ -337,9 +318,7 @@ void test_bulk_wrap_around() {
 
 void test_bulk_with_strings() {
     std::cout << "Testing bulk operations with strings..." << std::endl;
-    SPSC<std::string, 16> queue;
-    SpscSink<std::string, 16> queue_sink(queue);
-    SpscSource<std::string, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<std::string, 16>::make_queue();
 
     std::vector<std::string> input = { "hello", "world", "test", "bulk" };
     std::vector<std::string> output(input.size());
@@ -360,9 +339,7 @@ void test_bulk_with_strings() {
 
 void test_bulk_concurrent() {
     std::cout << "Testing concurrent bulk operations..." << std::endl;
-    SPSC<int, 512> queue;
-    SpscSink<int, 512> queue_sink(queue);
-    SpscSource<int, 512> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 512>::make_queue();
     constexpr int num_batches = 50;
     constexpr int batch_size = 20;
     constexpr int total_elements = num_batches * batch_size;
@@ -419,9 +396,7 @@ void test_bulk_concurrent() {
 
 void test_blocking_enqueue() {
     std::cout << "Testing blocking enqueue..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Fill the queue to near capacity (7 elements max)
     for (int i = 0; i < 7; ++i) {
@@ -454,9 +429,7 @@ void test_blocking_enqueue() {
 
 void test_blocking_dequeue() {
     std::cout << "Testing blocking dequeue..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     std::atomic<int> dequeued_value { -1 };
     std::atomic<bool> consumer_done { false };
@@ -488,9 +461,7 @@ void test_blocking_dequeue() {
 
 void test_blocking_concurrent() {
     std::cout << "Testing blocking concurrent operations..." << std::endl;
-    SPSC<int, 256> queue;
-    SpscSink<int, 256> queue_sink(queue);
-    SpscSource<int, 256> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 256>::make_queue();
     constexpr int num_elements = 1000;
 
     // Producer thread
@@ -525,9 +496,7 @@ void test_blocking_concurrent() {
 
 void test_blocking_with_strings() {
     std::cout << "Testing blocking operations with strings..." << std::endl;
-    SPSC<std::string, 16> queue;
-    SpscSink<std::string, 16> queue_sink(queue);
-    SpscSource<std::string, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<std::string, 16>::make_queue();
 
     std::string result;
     std::atomic<bool> done { false };
@@ -557,9 +526,7 @@ void test_blocking_with_strings() {
 
 void test_blocking_stress() {
     std::cout << "Testing blocking operations under stress..." << std::endl;
-    SPSC<int, 64> queue;
-    SpscSink<int, 64> queue_sink(queue);
-    SpscSource<int, 64> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 64>::make_queue();
     constexpr int total_ops = 10000;
     std::atomic<int> consumed_count { 0 };
 
@@ -591,9 +558,7 @@ void test_blocking_stress() {
 
 void test_blocking_bulk_enqueue() {
     std::cout << "Testing blocking bulk enqueue..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     // Fill most of the queue
     std::vector<int> initial_batch = { 1, 2, 3, 4, 5, 6, 7 };
@@ -645,9 +610,7 @@ void test_blocking_bulk_enqueue() {
 
 void test_blocking_bulk_dequeue() {
     std::cout << "Testing blocking bulk dequeue..." << std::endl;
-    SPSC<int, 128> queue;
-    SpscSink<int, 128> queue_sink(queue);
-    SpscSource<int, 128> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 128>::make_queue();
 
     std::vector<int> output(50);
     std::atomic<bool> consumer_done { false };
@@ -688,9 +651,7 @@ void test_blocking_bulk_dequeue() {
 
 void test_blocking_bulk_concurrent() {
     std::cout << "Testing blocking bulk concurrent operations..." << std::endl;
-    SPSC<int, 256> queue;
-    SpscSink<int, 256> queue_sink(queue);
-    SpscSource<int, 256> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 256>::make_queue();
     constexpr int num_batches = 100;
     constexpr int batch_size = 50;
     constexpr int total_elements = num_batches * batch_size;
@@ -714,8 +675,10 @@ void test_blocking_bulk_concurrent() {
         while (total_dequeued < total_elements) {
             int remaining = total_elements - total_dequeued;
             int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
-            affirm(queue_source.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5))
-                == to_dequeue);
+            affirm(
+                queue_source.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5))
+                == to_dequeue
+            );
             for (int i = 0; i < to_dequeue; ++i) {
                 consumed.push_back(batch[i]);
             }
@@ -738,9 +701,7 @@ void test_blocking_bulk_concurrent() {
 
 void test_blocking_bulk_mixed() {
     std::cout << "Testing mixed blocking and non-blocking bulk operations..." << std::endl;
-    SPSC<int, 64> queue;
-    SpscSink<int, 64> queue_sink(queue);
-    SpscSource<int, 64> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 64>::make_queue();
 
     std::vector<int> input1(10);
     for (int i = 0; i < 10; ++i) input1[i] = i;
@@ -787,12 +748,10 @@ void test_blocking_bulk_mixed() {
 
 void test_blocking_bulk_with_strings() {
     std::cout << "Testing blocking bulk with strings..." << std::endl;
-    SPSC<std::string, 32> queue;
-    SpscSink<std::string, 32> queue_sink(queue);
-    SpscSource<std::string, 32> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<std::string, 32>::make_queue();
 
-    std::vector<std::string> input = { "hello", "world", "blocking", "bulk", "operations", "are",
-        "now", "fully", "implemented", "and", "tested" };
+    std::vector<std::string> input = { "hello", "world", "blocking",    "bulk", "operations", "are",
+                                       "now",   "fully", "implemented", "and",  "tested" };
     std::vector<std::string> output(input.size());
 
     // Producer: enqueue all with blocking bulk
@@ -802,8 +761,10 @@ void test_blocking_bulk_with_strings() {
 
     // Consumer: dequeue all with blocking bulk
     std::thread consumer([&queue_source, &output]() {
-        affirm(queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5))
-            == output.size());
+        affirm(
+            queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5))
+            == output.size()
+        );
     });
 
     producer.join();
@@ -822,9 +783,7 @@ void test_blocking_bulk_with_strings() {
 
 void test_enqueue_timeout_on_full() {
     std::cout << "Testing enqueue timeout when queue is full..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Fill the queue to capacity (7 elements max)
     for (int i = 0; i < 7; ++i) {
@@ -841,9 +800,7 @@ void test_enqueue_timeout_on_full() {
 
 void test_enqueue_timeout_with_space() {
     std::cout << "Testing enqueue timeout when space becomes available..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Fill the queue
     for (int i = 0; i < 7; ++i) {
@@ -855,7 +812,8 @@ void test_enqueue_timeout_with_space() {
     std::atomic<bool> producer_success { false };
     std::thread producer([&queue_sink, &producer_done, &producer_success]() {
         producer_success.store(
-            queue_sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release);
+            queue_sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release
+        );
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -877,9 +835,7 @@ void test_enqueue_timeout_with_space() {
 
 void test_dequeue_timeout_on_empty() {
     std::cout << "Testing dequeue timeout when queue is empty..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     affirm(queue_source.empty());
 
@@ -892,9 +848,7 @@ void test_dequeue_timeout_on_empty() {
 
 void test_dequeue_timeout_with_data() {
     std::cout << "Testing dequeue timeout when data becomes available..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Consumer thread tries to dequeue with timeout
     std::atomic<bool> consumer_done { false };
@@ -923,9 +877,7 @@ void test_dequeue_timeout_with_data() {
 
 void test_bulk_enqueue_timeout_on_full() {
     std::cout << "Testing bulk enqueue timeout when queue is full..." << std::endl;
-    SPSC<int, 8> queue;
-    SpscSink<int, 8> queue_sink(queue);
-    SpscSource<int, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 8>::make_queue();
 
     // Fill the queue to capacity (7 elements max for capacity 8)
     std::vector<int> initial(7);
@@ -934,8 +886,10 @@ void test_bulk_enqueue_timeout_on_full() {
 
     // Try to enqueue bulk with short timeout (should fail)
     std::vector<int> batch = { 100, 101, 102, 103 };
-    affirm(!queue_sink.enqueue(batch.data(), batch.size(),
-        std::chrono::milliseconds(50))); // Should timeout
+    affirm(!queue_sink.enqueue(
+        batch.data(), batch.size(),
+        std::chrono::milliseconds(50)
+    )); // Should timeout
     affirm(queue_source.size() == 7); // Queue unchanged
 
     std::cout << "  PASSED: bulk enqueue timeout on full" << std::endl;
@@ -943,9 +897,7 @@ void test_bulk_enqueue_timeout_on_full() {
 
 void test_bulk_enqueue_timeout_with_space() {
     std::cout << "Testing bulk enqueue timeout when space becomes available..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     // Fill most of the queue
     std::vector<int> initial(7);
@@ -961,7 +913,8 @@ void test_bulk_enqueue_timeout_with_space() {
     std::thread producer([&queue_sink, &large_batch, &producer_done, &producer_success]() {
         producer_success.store(
             queue_sink.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(2)),
-            std::memory_order_release);
+            std::memory_order_release
+        );
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -984,9 +937,7 @@ void test_bulk_enqueue_timeout_with_space() {
 
 void test_bulk_dequeue_timeout_on_empty() {
     std::cout << "Testing bulk dequeue timeout when queue is empty..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     affirm(queue_source.empty());
 
@@ -1002,9 +953,7 @@ void test_bulk_dequeue_timeout_on_empty() {
 
 void test_bulk_dequeue_timeout_with_partial_data() {
     std::cout << "Testing bulk dequeue timeout with partial data..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 16>::make_queue();
 
     // Enqueue fewer elements than requested
     std::vector<int> initial = { 1, 2, 3 };
@@ -1031,9 +980,7 @@ void test_bulk_dequeue_timeout_with_partial_data() {
 
 void test_graceful_shutdown_with_enqueue_timeout() {
     std::cout << "Testing graceful producer shutdown with timeout..." << std::endl;
-    SPSC<int, 64> queue;
-    SpscSink<int, 64> queue_sink(queue);
-    SpscSource<int, 64> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 64>::make_queue();
     std::atomic<bool> shutdown { false };
     constexpr int target_elements = 100;
     std::atomic<int> enqueued_count { 0 };
@@ -1072,9 +1019,7 @@ void test_graceful_shutdown_with_enqueue_timeout() {
 
 void test_graceful_shutdown_with_dequeue_timeout() {
     std::cout << "Testing graceful consumer shutdown with timeout..." << std::endl;
-    SPSC<int, 64> queue;
-    SpscSink<int, 64> queue_sink(queue);
-    SpscSource<int, 64> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 64>::make_queue();
     std::atomic<bool> shutdown { false };
     std::atomic<int> dequeued_count { 0 };
 
@@ -1117,9 +1062,7 @@ void test_graceful_shutdown_with_dequeue_timeout() {
 
 void test_graceful_shutdown_with_bulk_operations() {
     std::cout << "Testing graceful shutdown with bulk operations..." << std::endl;
-    SPSC<int, 128> queue;
-    SpscSink<int, 128> queue_sink(queue);
-    SpscSource<int, 128> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<int, 128>::make_queue();
     std::atomic<bool> producer_shutdown { false };
     std::atomic<bool> consumer_shutdown { false };
     std::atomic<int> total_produced { 0 };
@@ -1128,14 +1071,15 @@ void test_graceful_shutdown_with_bulk_operations() {
     // Producer with bulk operations and timeout-based shutdown checks
     std::thread producer([&queue_sink, &producer_shutdown, &total_produced]() {
         for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire);
-            ++batch) {
+             ++batch) {
             std::vector<int> batch_data(10);
             for (int i = 0; i < 10; ++i) {
                 batch_data[i] = batch * 10 + i;
             }
 
             bool success = queue_sink.enqueue(
-                batch_data.data(), batch_data.size(), std::chrono::milliseconds(100));
+                batch_data.data(), batch_data.size(), std::chrono::milliseconds(100)
+            );
             if (success) {
                 total_produced.fetch_add(10, std::memory_order_release);
             } else if (!producer_shutdown.load(std::memory_order_acquire)) {
@@ -1150,7 +1094,8 @@ void test_graceful_shutdown_with_bulk_operations() {
         std::vector<int> buffer(20);
         while (!consumer_shutdown.load(std::memory_order_acquire)) {
             std::size_t dequeued = queue_source.dequeue(
-                buffer.data(), buffer.size(), std::chrono::milliseconds(100));
+                buffer.data(), buffer.size(), std::chrono::milliseconds(100)
+            );
             if (dequeued > 0) {
                 total_consumed.fetch_add(dequeued, std::memory_order_release);
             }
@@ -1160,7 +1105,8 @@ void test_graceful_shutdown_with_bulk_operations() {
         std::vector<int> final_buffer(50);
         while (true) {
             std::size_t dequeued = queue_source.dequeue(
-                final_buffer.data(), final_buffer.size(), std::chrono::milliseconds(10));
+                final_buffer.data(), final_buffer.size(), std::chrono::milliseconds(10)
+            );
             if (dequeued == 0) break;
             total_consumed.fetch_add(dequeued, std::memory_order_release);
         }
@@ -1188,21 +1134,22 @@ void test_graceful_shutdown_with_bulk_operations() {
 
 void test_move_semantics_with_timeout() {
     std::cout << "Testing move semantics with enqueue timeout..." << std::endl;
-    SPSC<std::string, 8> queue;
-    SpscSink<std::string, 8> queue_sink(queue);
-    SpscSource<std::string, 8> queue_source(queue);
+    auto [queue_sink, queue_source] = SPSC<std::string, 8>::make_queue();
 
     // Fill the queue
     for (int i = 0; i < 7; ++i) {
         bool enqueued = queue_sink.enqueue(
-            std::string("element") + std::to_string(i), std::chrono::seconds(5));
+            std::string("element") + std::to_string(i), std::chrono::seconds(5)
+        );
         affirm(enqueued);
     }
 
     // Try to enqueue with move and timeout (should fail)
     std::string to_enqueue = "timeout_test";
-    affirm(!queue_sink.enqueue(std::move(to_enqueue),
-        std::chrono::milliseconds(50))); // Should timeout
+    affirm(!queue_sink.enqueue(
+        std::move(to_enqueue),
+        std::chrono::milliseconds(50)
+    )); // Should timeout
 
     // Note: after failed enqueue with timeout, the moved string may or may not be
     // valid depending on implementation. We don't rely on it here.
@@ -1277,9 +1224,7 @@ std::atomic<int> LifecycleTracker::active_count { 0 };
 void test_use_after_free_single_element() {
     std::cout << "Testing use-after-free with single element..." << std::endl;
     {
-        SPSC<LifecycleTracker, 8> queue;
-        SpscSink<LifecycleTracker, 8> queue_sink(queue);
-        SpscSource<LifecycleTracker, 8> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 8>::make_queue();
 
         // Enqueue an element
         {
@@ -1306,9 +1251,7 @@ void test_use_after_free_single_element() {
 void test_use_after_free_multiple_elements() {
     std::cout << "Testing use-after-free with multiple elements..." << std::endl;
     {
-        SPSC<LifecycleTracker, 16> queue;
-        SpscSink<LifecycleTracker, 16> queue_sink(queue);
-        SpscSource<LifecycleTracker, 16> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 16>::make_queue();
 
         // Enqueue multiple elements
         {
@@ -1339,9 +1282,7 @@ void test_use_after_free_multiple_elements() {
 void test_use_after_free_bulk_operations() {
     std::cout << "Testing use-after-free with bulk operations..." << std::endl;
     {
-        SPSC<LifecycleTracker, 32> queue;
-        SpscSink<LifecycleTracker, 32> queue_sink(queue);
-        SpscSource<LifecycleTracker, 32> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 32>::make_queue();
 
         // Bulk enqueue
         {
@@ -1374,9 +1315,7 @@ void test_use_after_free_bulk_operations() {
 void test_use_after_free_concurrent() {
     std::cout << "Testing use-after-free with concurrent operations..." << std::endl;
     {
-        SPSC<LifecycleTracker, 256> queue;
-        SpscSink<LifecycleTracker, 256> queue_sink(queue);
-        SpscSource<LifecycleTracker, 256> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 256>::make_queue();
 
         constexpr int num_elements = 100;
         std::atomic<bool> producer_done { false };
@@ -1427,9 +1366,7 @@ void test_use_after_free_concurrent() {
 void test_use_after_free_copy_semantics() {
     std::cout << "Testing use-after-free with copy semantics..." << std::endl;
     {
-        SPSC<LifecycleTracker, 16> queue;
-        SpscSink<LifecycleTracker, 16> queue_sink(queue);
-        SpscSource<LifecycleTracker, 16> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 16>::make_queue();
 
         // Enqueue by copy
         {
@@ -1453,9 +1390,7 @@ void test_use_after_free_copy_semantics() {
 void test_use_after_free_partial_dequeue() {
     std::cout << "Testing use-after-free with partial dequeue operations..." << std::endl;
     {
-        SPSC<LifecycleTracker, 32> queue;
-        SpscSink<LifecycleTracker, 32> queue_sink(queue);
-        SpscSource<LifecycleTracker, 32> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 32>::make_queue();
 
         // Enqueue elements
         {
@@ -1499,9 +1434,7 @@ void test_use_after_free_partial_dequeue() {
 void test_use_after_free_blocking_operations() {
     std::cout << "Testing use-after-free with blocking operations..." << std::endl;
     {
-        SPSC<LifecycleTracker, 16> queue;
-        SpscSink<LifecycleTracker, 16> queue_sink(queue);
-        SpscSource<LifecycleTracker, 16> queue_source(queue);
+        auto [queue_sink, queue_source] = SPSC<LifecycleTracker, 16>::make_queue();
 
         // Producer thread with blocking enqueue
         std::thread producer([&queue_sink]() {
@@ -1537,10 +1470,7 @@ void test_use_after_free_blocking_operations() {
 
 void test_sink() {
     std::cout << "Testing SpscSink..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
-    SpscSink<int, 16> sink(queue);
+    auto [sink, queue_source] = SPSC<int, 16>::make_queue();
 
     // Test single enqueue
     affirm(sink.try_enqueue(10));
@@ -1563,10 +1493,7 @@ void test_sink() {
 
 void test_consumer_handle() {
     std::cout << "Testing SpscSource..." << std::endl;
-    SPSC<int, 16> queue;
-    SpscSink<int, 16> queue_sink(queue);
-    SpscSource<int, 16> queue_source(queue);
-    SpscSource<int, 16> source(queue);
+    auto [queue_sink, source] = SPSC<int, 16>::make_queue();
 
     // Setup - use SPSC directly to enqueue
     queue_sink.try_enqueue(10);
@@ -1593,11 +1520,7 @@ void test_consumer_handle() {
 
 void test_sink_source_concurrent() {
     std::cout << "Testing SpscSink and SpscSource concurrently..." << std::endl;
-    SPSC<int, 256> queue;
-    SpscSink<int, 256> queue_sink(queue);
-    SpscSource<int, 256> queue_source(queue);
-    SpscSink<int, 256> sink(queue);
-    SpscSource<int, 256> source(queue);
+    auto [sink, source] = SPSC<int, 256>::make_queue();
 
     constexpr int num_elements = 100;
     std::atomic<bool> producer_done { false };
@@ -1635,10 +1558,7 @@ void test_sink_source_concurrent() {
 
 void test_sink_bulk_with_strings() {
     std::cout << "Testing SpscSink bulk operations with strings..." << std::endl;
-    SPSC<std::string, 16> queue;
-    SpscSink<std::string, 16> queue_sink(queue);
-    SpscSource<std::string, 16> queue_source(queue);
-    SpscSink<std::string, 16> producer(queue);
+    auto [producer, queue_source] = SPSC<std::string, 16>::make_queue();
 
     std::vector<std::string> input = { "hello", "world", "test" };
     affirm(producer.try_enqueue(input.data(), input.size()) == input.size());
@@ -1657,10 +1577,7 @@ void test_sink_bulk_with_strings() {
 
 void test_consumer_handle_bulk_with_strings() {
     std::cout << "Testing SpscSource bulk operations with strings..." << std::endl;
-    SPSC<std::string, 16> queue;
-    SpscSink<std::string, 16> queue_sink(queue);
-    SpscSource<std::string, 16> queue_source(queue);
-    SpscSource<std::string, 16> source(queue);
+    auto [queue_sink, source] = SPSC<std::string, 16>::make_queue();
 
     // Setup - enqueue directly
     queue_sink.try_enqueue("first");

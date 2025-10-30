@@ -20,3 +20,8 @@ IncludeBlocks: Regroup
 
 KeepEmptyLines:
   AtStartOfFile: false
+
+BreakAfterReturnType: Automatic
+PenaltyReturnTypeOnItsOwnLine: 1000
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: OnePerLine
