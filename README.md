@@ -11,7 +11,7 @@ C++. The project uses [CMake](https://cmake.org/) for build configuration and
 * GNU Guix (preferred) or system-wide packages:
   * CMake >= 4.0
   * Make or Ninja build system
-  * A C++ compiler with C++17 support (GCC >= 7, Clang >= 5, MSVC >= 2017)
+  * A C++ compiler with C++23 support (GCC >= 15, Clang >= 17, MSVC toolset >= v19.44)
 
 ### Using Guix Shell
 
@@ -35,7 +35,7 @@ ctest --output-on-failure --test-dir build
 ## Performance Benchmarks
 
 ```bash
-guix shell -m manifest.scm -- sh <<EOF
+guix shell -m manifest.scm -- sh <<EOFvs code
     set -euo pipefail
     cmake -S . -B build --fresh
     cmake --build build -j$(nproc)
