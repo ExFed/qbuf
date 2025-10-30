@@ -224,7 +224,8 @@ public:
          */
         template <typename Rep, typename Period>
         std::size_t dequeue(
-            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout) {
+            T* data, std::size_t count, std::chrono::duration<Rep, Period> timeout
+        ) {
             return queue_.dequeue(data, count, timeout);
         }
 

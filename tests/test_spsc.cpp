@@ -312,8 +312,9 @@ void test_bulk_wrap_around() {
     affirm(queue_source.size() == 4);
 
     // Enqueue another batch (this should handle wrap-around)
-    affirm(queue_sink.try_enqueue(batch3.data(), batch3.size())
-        == 3); // Can only fit 3 more (capacity is 8, 1 reserved)
+    affirm(
+        queue_sink.try_enqueue(batch3.data(), batch3.size()) == 3
+    ); // Can only fit 3 more (capacity is 8, 1 reserved)
 
     // Dequeue all
     std::vector<int> final_output(7);
@@ -714,8 +715,10 @@ void test_blocking_bulk_concurrent() {
         while (total_dequeued < total_elements) {
             int remaining = total_elements - total_dequeued;
             int to_dequeue = (remaining < batch_size) ? remaining : batch_size;
-            affirm(queue_source.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5))
-                == to_dequeue);
+            affirm(
+                queue_source.dequeue(batch.data(), to_dequeue, std::chrono::seconds(5))
+                == to_dequeue
+            );
             for (int i = 0; i < to_dequeue; ++i) {
                 consumed.push_back(batch[i]);
             }
@@ -791,8 +794,8 @@ void test_blocking_bulk_with_strings() {
     SpscSink<std::string, 32> queue_sink(queue);
     SpscSource<std::string, 32> queue_source(queue);
 
-    std::vector<std::string> input = { "hello", "world", "blocking", "bulk", "operations", "are",
-        "now", "fully", "implemented", "and", "tested" };
+    std::vector<std::string> input = { "hello", "world", "blocking",    "bulk", "operations", "are",
+                                       "now",   "fully", "implemented", "and",  "tested" };
     std::vector<std::string> output(input.size());
 
     // Producer: enqueue all with blocking bulk
@@ -802,8 +805,10 @@ void test_blocking_bulk_with_strings() {
 
     // Consumer: dequeue all with blocking bulk
     std::thread consumer([&queue_source, &output]() {
-        affirm(queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5))
-            == output.size());
+        affirm(
+            queue_source.dequeue(output.data(), output.size(), std::chrono::seconds(5))
+            == output.size()
+        );
     });
 
     producer.join();
@@ -855,7 +860,8 @@ void test_enqueue_timeout_with_space() {
     std::atomic<bool> producer_success { false };
     std::thread producer([&queue_sink, &producer_done, &producer_success]() {
         producer_success.store(
-            queue_sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release);
+            queue_sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release
+        );
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -934,8 +940,10 @@ void test_bulk_enqueue_timeout_on_full() {
 
     // Try to enqueue bulk with short timeout (should fail)
     std::vector<int> batch = { 100, 101, 102, 103 };
-    affirm(!queue_sink.enqueue(batch.data(), batch.size(),
-        std::chrono::milliseconds(50))); // Should timeout
+    affirm(!queue_sink.enqueue(
+        batch.data(), batch.size(),
+        std::chrono::milliseconds(50)
+    )); // Should timeout
     affirm(queue_source.size() == 7); // Queue unchanged
 
     std::cout << "  PASSED: bulk enqueue timeout on full" << std::endl;
@@ -961,7 +969,8 @@ void test_bulk_enqueue_timeout_with_space() {
     std::thread producer([&queue_sink, &large_batch, &producer_done, &producer_success]() {
         producer_success.store(
             queue_sink.enqueue(large_batch.data(), large_batch.size(), std::chrono::seconds(2)),
-            std::memory_order_release);
+            std::memory_order_release
+        );
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -1128,14 +1137,15 @@ void test_graceful_shutdown_with_bulk_operations() {
     // Producer with bulk operations and timeout-based shutdown checks
     std::thread producer([&queue_sink, &producer_shutdown, &total_produced]() {
         for (int batch = 0; batch < 20 && !producer_shutdown.load(std::memory_order_acquire);
-            ++batch) {
+             ++batch) {
             std::vector<int> batch_data(10);
             for (int i = 0; i < 10; ++i) {
                 batch_data[i] = batch * 10 + i;
             }
 
             bool success = queue_sink.enqueue(
-                batch_data.data(), batch_data.size(), std::chrono::milliseconds(100));
+                batch_data.data(), batch_data.size(), std::chrono::milliseconds(100)
+            );
             if (success) {
                 total_produced.fetch_add(10, std::memory_order_release);
             } else if (!producer_shutdown.load(std::memory_order_acquire)) {
@@ -1150,7 +1160,8 @@ void test_graceful_shutdown_with_bulk_operations() {
         std::vector<int> buffer(20);
         while (!consumer_shutdown.load(std::memory_order_acquire)) {
             std::size_t dequeued = queue_source.dequeue(
-                buffer.data(), buffer.size(), std::chrono::milliseconds(100));
+                buffer.data(), buffer.size(), std::chrono::milliseconds(100)
+            );
             if (dequeued > 0) {
                 total_consumed.fetch_add(dequeued, std::memory_order_release);
             }
@@ -1160,7 +1171,8 @@ void test_graceful_shutdown_with_bulk_operations() {
         std::vector<int> final_buffer(50);
         while (true) {
             std::size_t dequeued = queue_source.dequeue(
-                final_buffer.data(), final_buffer.size(), std::chrono::milliseconds(10));
+                final_buffer.data(), final_buffer.size(), std::chrono::milliseconds(10)
+            );
             if (dequeued == 0) break;
             total_consumed.fetch_add(dequeued, std::memory_order_release);
         }
@@ -1195,14 +1207,17 @@ void test_move_semantics_with_timeout() {
     // Fill the queue
     for (int i = 0; i < 7; ++i) {
         bool enqueued = queue_sink.enqueue(
-            std::string("element") + std::to_string(i), std::chrono::seconds(5));
+            std::string("element") + std::to_string(i), std::chrono::seconds(5)
+        );
         affirm(enqueued);
     }
 
     // Try to enqueue with move and timeout (should fail)
     std::string to_enqueue = "timeout_test";
-    affirm(!queue_sink.enqueue(std::move(to_enqueue),
-        std::chrono::milliseconds(50))); // Should timeout
+    affirm(!queue_sink.enqueue(
+        std::move(to_enqueue),
+        std::chrono::milliseconds(50)
+    )); // Should timeout
 
     // Note: after failed enqueue with timeout, the moved string may or may not be
     // valid depending on implementation. We don't rely on it here.
