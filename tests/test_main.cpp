@@ -1,11 +1,12 @@
+#include "test_mmap_spsc.hpp"
 #include "test_spsc.hpp"
 
 #include <iostream>
 
 int main() {
-    std::cout << "\n=== Running SPSC Tests ===" << std::endl;
     try {
         run_all_spsc_tests();
+        run_all_mmap_spsc_tests();
         std::cout << "\n=== All tests passed! ===" << std::endl;
         return 0;
     } catch (const std::exception& e) {

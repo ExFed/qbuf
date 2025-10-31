@@ -23,9 +23,17 @@
   - `MutexQueue<T, Capacity>` uses `std::mutex` and `std::condition_variable` for synchronization.
   - `MutexQueue<T, Capacity>::Sink` and `MutexQueue<T, Capacity>::Source` provide role-based access.
   - Reserves one slot (max occupancy = Capacity - 1); Capacity can be any value > 1 (no power-of-two requirement).
-- `tests/test_main.cpp` is the entry point for the test runner; it delegates to `run_all_spsc_tests()` from `test_spsc.hpp`.
+- `include/qbuf/mmap_spsc.hpp` is the header-only library for a memory-mapped single-producer single-consumer queue, `MmapSPSC`, with API surface mirroring SPSC.
+  - `MmapSPSC<T, Capacity>` uses double-mapped virtual memory pages (Linux memfd) to eliminate wrap-around logic.
+  - `MmapSPSC<T, Capacity>::Sink` and `MmapSPSC<T, Capacity>::Source` provide role-based access.
+  - Factory method `MmapSPSC<T, Capacity>::create()` returns `std::pair<Sink, Source>`.
+  - On non-Linux platforms, falls back to regular heap allocation without double-mapping optimization.
+  - Requires `Capacity` to be a power of two and reserves one slot (max occupancy = Capacity - 1).
+- `tests/test_main.cpp` is the entry point for the test runner; it delegates to `run_all_spsc_tests()` from `test_spsc.hpp` and `run_all_mmap_spsc_tests()` from `test_mmap_spsc.hpp`.
 - `tests/test_spsc.cpp` bundles all assertion-based tests; add new test functions here and register them in `run_all_spsc_tests()`.
 - `tests/test_spsc.hpp` declares the `run_all_spsc_tests()` function.
+- `tests/test_mmap_spsc.cpp` bundles all memory-mapped queue tests; add new test functions here and register them in `run_all_mmap_spsc_tests()`.
+- `tests/test_mmap_spsc.hpp` declares the `run_all_mmap_spsc_tests()` function.
 - `src/benchmark.cpp` compares performance of SPSC vs MutexQueue; add new benchmark runs here.
 - `.clang-format` contains formatting rules matching the project's code style.
 - Guix manifests in `manifest.scm` and `guix.scm` pin GCC 11 + CMake; prefer them when reproducing CI-like environments.
@@ -61,6 +69,20 @@
 - Notifications (`cv_not_empty_`, `cv_not_full_`) occur after state changes; unlock-then-notify pattern reduces contention.
 - Bulk operations split transfers into up-to-two contiguous segments using modulo arithmetic.
 - Internal helpers: `next(i)`, `size_unlocked()`, `free_unlocked()`, `full_unlocked()` maintain consistency with circular buffer semantics.
+
+## MmapSPSC Design Notes
+
+- `MmapSPSC<T, Capacity>` uses the double-mapping trick where two adjacent virtual memory regions point to the same physical memory (via Linux memfd_create).
+- This eliminates wrap-around logic during bulk operations—a contiguous write/read in the virtual address space automatically wraps via the double mapping.
+- Requires `Capacity` to be a power of two and reserves one slot (max occupancy = Capacity - 1), mirroring SPSC behavior.
+- `MmapSPSC<T, Capacity>::Sink` and `MmapSPSC<T, Capacity>::Source` provide role-based access with identical APIs to SPSC.
+- Factory method `MmapSPSC<T, Capacity>::create()` returns `std::pair<Sink, Source>` for convenient setup.
+- Head and tail indices are `std::atomic<std::size_t>` aligned to 64 bytes to avoid false sharing.
+- All enqueue/dequeue paths use relaxed/acquire/release atomics matching SPSC's memory ordering.
+- On Linux, uses `memfd_create` + double `mmap(MAP_FIXED)` to create mirrored regions; falls back to regular heap allocation on non-Linux platforms.
+- Buffer size is rounded up to page size for mmap compatibility.
+- Cleanup in destructor unmaps both regions and closes the memfd file descriptor.
+- Blocking APIs spin with `std::this_thread::yield()` for low latency, consistent with SPSC design.
 
 ## Testing & Extensions
 
