@@ -1,3 +1,5 @@
+#include "test_spsc.hpp"
+
 #include "affirm.hpp"
 
 #include <atomic>
@@ -1491,7 +1493,7 @@ void test_sink() {
     std::cout << "  PASSED: SpscSink" << std::endl;
 }
 
-void test_consumer_handle() {
+void test_source() {
     std::cout << "Testing SpscSource..." << std::endl;
     auto [queue_sink, source] = SPSC<int, 16>::make_queue();
 
@@ -1575,7 +1577,7 @@ void test_sink_bulk_with_strings() {
     std::cout << "  PASSED: SpscSink bulk with strings" << std::endl;
 }
 
-void test_consumer_handle_bulk_with_strings() {
+void test_source_bulk_with_strings() {
     std::cout << "Testing SpscSource bulk operations with strings..." << std::endl;
     auto [queue_sink, source] = SPSC<std::string, 16>::make_queue();
 
@@ -1596,6 +1598,8 @@ void test_consumer_handle_bulk_with_strings() {
 }
 
 void run_all_spsc_tests() {
+    std::cout << "\n=== Running SPSC Tests ===" << std::endl;
+
     test_basic_operations();
     test_queue_full();
     test_fifo_ordering();
@@ -1638,8 +1642,10 @@ void run_all_spsc_tests() {
     test_use_after_free_partial_dequeue();
     test_use_after_free_blocking_operations();
     test_sink();
-    test_consumer_handle();
+    test_source();
     test_sink_source_concurrent();
     test_sink_bulk_with_strings();
-    test_consumer_handle_bulk_with_strings();
+    test_source_bulk_with_strings();
+
+    std::cout << "\n=== All SPSC tests passed ===" << std::endl;
 }
