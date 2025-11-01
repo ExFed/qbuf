@@ -8,11 +8,38 @@ C++. The project uses [CMake](https://cmake.org/) for build configuration and
 
 ### Requirements
 
-* GNU Guix (preferred) or system-wide packages:
+* GNU Guix (preferred)
+  * Optional: direnv for automatic environment loading
+* If not using GNU Guix, system-wide packages:
   * CMake >= 4.0
   * Make or Ninja build system
   * A C++ compiler with C++23 support
     (GCC >= 15, Clang >= 17, MSVC toolset >= v19.44)
+
+### Using direnv (Recommended)
+
+For automatic environment loading, install [direnv](https://direnv.net/) and configure your shell:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+eval "$(direnv hook bash)"  # for bash
+eval "$(direnv hook zsh)"   # for zsh
+```
+
+Then allow the `.envrc` file in this directory:
+
+```bash
+direnv allow
+```
+
+The Guix environment will now load automatically when you `cd` into the project directory.
+Once loaded, you can build and test normally:
+
+```bash
+cmake -S . -B build --fresh
+cmake --build build -j$(nproc)
+ctest --output-on-failure --test-dir build
+```
 
 ### Using Guix Shell
 
