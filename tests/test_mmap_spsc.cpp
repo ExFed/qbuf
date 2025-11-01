@@ -199,6 +199,48 @@ void test_mmap_move_semantics() {
     std::cout << "✓ test_mmap_move_semantics passed" << std::endl;
 }
 
+void test_mmap_blocking_rvalue_enqueue_with_movable_type() {
+    auto [sink, source] = MmapSPSC<std::unique_ptr<int>, 8>::create();
+
+    // Fill queue to capacity (7 elements, since 1 slot is reserved)
+    for (int i = 0; i < 7; ++i) {
+        assert(sink.try_enqueue(std::make_unique<int>(i)));
+    }
+    assert(!sink.empty());
+
+    // Consumer thread: sleep briefly, then drain the queue
+    std::thread consumer([&source]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        for (int i = 0; i < 7; ++i) {
+            auto val = source.try_dequeue();
+            assert(val.has_value());
+            assert(*val.value() == i);
+        }
+    });
+
+    // Producer thread: attempt blocking rvalue enqueue with unique_ptr
+    // This should eventually succeed once the consumer drains space
+    auto ptr = std::make_unique<int>(99);
+    auto start = std::chrono::steady_clock::now();
+    bool success = sink.enqueue(std::move(ptr), std::chrono::milliseconds(500));
+    auto elapsed = std::chrono::steady_clock::now() - start;
+
+    assert(success);
+    assert(elapsed >= std::chrono::milliseconds(40));
+    // After successful enqueue, ptr should be moved-from
+    assert(ptr == nullptr);
+
+    // Verify the consumer received the moved value correctly
+    auto received = source.try_dequeue();
+    assert(received.has_value());
+    // This assertion will fail if ptr was moved-from multiple times (the bug)
+    assert(*received.value() == 99);
+
+    consumer.join();
+
+    std::cout << "✓ test_mmap_blocking_rvalue_enqueue_with_movable_type passed" << std::endl;
+}
+
 void test_mmap_producer_consumer_stress() {
     constexpr std::size_t total_items = 100000;
     auto [sink, source] = MmapSPSC<int, 4096>::create();
@@ -242,6 +284,7 @@ void run_all_mmap_spsc_tests() {
     test_mmap_blocking_bulk_enqueue();
     test_mmap_timeout();
     test_mmap_move_semantics();
+    test_mmap_blocking_rvalue_enqueue_with_movable_type();
     test_mmap_producer_consumer_stress();
 
     std::cout << "\n=== All MmapSPSC tests passed ===" << std::endl;
