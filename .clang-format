@@ -25,3 +25,7 @@ BreakAfterReturnType: Automatic
 PenaltyReturnTypeOnItsOwnLine: 1000
 AlignAfterOpenBracket: BlockIndent
 BinPackParameters: OnePerLine
+
+# Constructor Initializers
+PackConstructorInitializers: CurrentLine
+ConstructorInitializerIndentWidth: 8
