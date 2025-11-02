@@ -1,9 +1,8 @@
 #include "test_mmap_spsc.hpp"
 
 #include "../include/qbuf/mmap_spsc.hpp"
-#include "affirm.hpp"
+#include "assert.hpp"
 
-#include <cassert>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -16,18 +15,18 @@ void test_mmap_basic_enqueue_dequeue() {
 
     auto [sink, source] = MmapSPSC<int, 64>::create();
 
-    affirm(sink.empty());
-    affirm(source.empty());
+    assert(sink.empty());
+    assert(source.empty());
 
-    affirm(sink.try_enqueue(42));
-    affirm(!sink.empty());
-    affirm(!source.empty());
+    assert(sink.try_enqueue(42));
+    assert(!sink.empty());
+    assert(!source.empty());
 
     auto value = source.try_dequeue();
-    affirm(value.has_value());
-    affirm(value.value() == 42);
-    affirm(sink.empty());
-    affirm(source.empty());
+    assert(value.has_value());
+    assert(value.value() == 42);
+    assert(sink.empty());
+    assert(source.empty());
 
     std::cout << "  PASSED: test_mmap_basic_enqueue_dequeue" << std::endl;
 }
@@ -38,18 +37,18 @@ void test_mmap_full_queue() {
     auto [sink, source] = MmapSPSC<int, 8>::create();
 
     for (int i = 0; i < 7; ++i) {
-        affirm(sink.try_enqueue(i));
+        assert(sink.try_enqueue(i));
     }
 
-    affirm(!sink.try_enqueue(999));
+    assert(!sink.try_enqueue(999));
 
     for (int i = 0; i < 7; ++i) {
         auto value = source.try_dequeue();
-        affirm(value.has_value());
-        affirm(value.value() == i);
+        assert(value.has_value());
+        assert(value.value() == i);
     }
 
-    affirm(!source.try_dequeue().has_value());
+    assert(!source.try_dequeue().has_value());
 
     std::cout << "  PASSED: test_mmap_full_queue" << std::endl;
 }
@@ -61,14 +60,14 @@ void test_mmap_bulk_operations() {
 
     std::vector<int> input = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
     std::size_t enqueued = sink.try_enqueue(input.data(), input.size());
-    affirm(enqueued == input.size());
+    assert(enqueued == input.size());
 
     std::vector<int> output(10, 0);
     std::size_t dequeued = source.try_dequeue(output.data(), output.size());
-    affirm(dequeued == output.size());
+    assert(dequeued == output.size());
 
     for (std::size_t i = 0; i < input.size(); ++i) {
-        affirm(input[i] == output[i]);
+        assert(input[i] == output[i]);
     }
 
     std::cout << "  PASSED: test_mmap_bulk_operations" << std::endl;
@@ -80,24 +79,24 @@ void test_mmap_bulk_wraparound() {
     auto [sink, source] = MmapSPSC<int, 16>::create();
 
     std::vector<int> data1 = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-    affirm(sink.try_enqueue(data1.data(), data1.size()) == data1.size());
+    assert(sink.try_enqueue(data1.data(), data1.size()) == data1.size());
 
     std::vector<int> partial(5, 0);
-    affirm(source.try_dequeue(partial.data(), 5) == 5);
+    assert(source.try_dequeue(partial.data(), 5) == 5);
 
     std::vector<int> data2 = { 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 };
     std::size_t enqueued = sink.try_enqueue(data2.data(), data2.size());
-    affirm(enqueued == 10);
+    assert(enqueued == 10);
 
     std::vector<int> output(15, 0);
     std::size_t dequeued = source.try_dequeue(output.data(), 15);
-    affirm(dequeued == 15);
+    assert(dequeued == 15);
 
     for (int i = 0; i < 5; ++i) {
-        affirm(output[i] == data1[i + 5]);
+        assert(output[i] == data1[i + 5]);
     }
     for (int i = 0; i < 10; ++i) {
-        affirm(output[i + 5] == data2[i]);
+        assert(output[i + 5] == data2[i]);
     }
 
     std::cout << "  PASSED: test_mmap_bulk_wraparound" << std::endl;
@@ -123,8 +122,8 @@ void test_mmap_blocking_enqueue() {
     bool success = sink.enqueue(999, std::chrono::milliseconds(200));
     auto elapsed = std::chrono::steady_clock::now() - start;
 
-    affirm(success);
-    affirm(elapsed >= std::chrono::milliseconds(40));
+    assert(success);
+    assert(elapsed >= std::chrono::milliseconds(40));
 
     consumer.join();
 
@@ -145,9 +144,9 @@ void test_mmap_blocking_dequeue() {
     auto value = source.dequeue(std::chrono::milliseconds(200));
     auto elapsed = std::chrono::steady_clock::now() - start;
 
-    affirm(value.has_value());
-    affirm(value.value() == 42);
-    affirm(elapsed >= std::chrono::milliseconds(40));
+    assert(value.has_value());
+    assert(value.value() == 42);
+    assert(elapsed >= std::chrono::milliseconds(40));
 
     producer.join();
 
@@ -174,8 +173,8 @@ void test_mmap_blocking_bulk_enqueue() {
     bool success = sink.enqueue(input.data(), input.size(), std::chrono::milliseconds(200));
     auto elapsed = std::chrono::steady_clock::now() - start;
 
-    affirm(success);
-    affirm(elapsed >= std::chrono::milliseconds(40));
+    assert(success);
+    assert(elapsed >= std::chrono::milliseconds(40));
 
     consumer.join();
 
@@ -195,9 +194,9 @@ void test_mmap_timeout() {
     bool success = sink.enqueue(999, std::chrono::milliseconds(50));
     auto elapsed = std::chrono::steady_clock::now() - start;
 
-    affirm(!success);
-    affirm(elapsed >= std::chrono::milliseconds(40));
-    affirm(elapsed < std::chrono::milliseconds(100));
+    assert(!success);
+    assert(elapsed >= std::chrono::milliseconds(40));
+    assert(elapsed < std::chrono::milliseconds(100));
 
     std::cout << "  PASSED: test_mmap_timeout" << std::endl;
 }
@@ -208,12 +207,12 @@ void test_mmap_move_semantics() {
     auto [sink, source] = MmapSPSC<std::unique_ptr<int>, 64>::create();
 
     auto ptr = std::make_unique<int>(42);
-    affirm(sink.try_enqueue(std::move(ptr)));
-    affirm(ptr == nullptr);
+    assert(sink.try_enqueue(std::move(ptr)));
+    assert(ptr == nullptr);
 
     auto value = source.try_dequeue();
-    affirm(value.has_value());
-    affirm(*value.value() == 42);
+    assert(value.has_value());
+    assert(*value.value() == 42);
 
     std::cout << "  PASSED: test_mmap_move_semantics" << std::endl;
 }
@@ -282,15 +281,15 @@ void test_mmap_producer_consumer_stress() {
             while (!(value = source.try_dequeue()).has_value()) {
                 std::this_thread::yield();
             }
-            affirm(value.value() == static_cast<int>(i));
+            assert(value.value() == static_cast<int>(i));
         }
     });
 
     producer.join();
     consumer.join();
 
-    affirm(sink.empty());
-    affirm(source.empty());
+    assert(sink.empty());
+    assert(source.empty());
 
     std::cout << "  PASSED: test_mmap_producer_consumer_stress" << std::endl;
 }
