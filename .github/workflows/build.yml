@@ -10,14 +10,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Guix cache
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore Guix cache
       uses: actions/cache@v4
       with:
         path: |
           ~/.cache/guix
           /gnu/store
-        # use a key that (almost) never matches
-        key: guix-cache-${{ github.sha }}
+        key: guix-cache-${{ hashFiles( '**/channels.scm', '**/manifest.scm' ) }}
         restore-keys: |
           guix-cache-
 
@@ -29,18 +31,12 @@ jobs:
     - name: Ensure no locale warning
       run: test -z "$(guix --version 2>&1 >/dev/null)"
 
-    - name: Checkout project
-      uses: actions/checkout@v4
-
     - name: Install Dev Environment
       run: |
-        set -euo pipefail
-        guix pull -C channels.scm
-        guix package -m manifest.scm
+        guix time-machine -C channels.scm -- package -m manifest.scm
 
     - name: Check code formatting
       run: |
-        set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
           git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' \
               | xargs clang-format --verbose --dry-run --Werror
@@ -49,9 +45,9 @@ jobs:
 
     - name: Build & Test
       run: |
-        set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
-          cmake -S . -B build --fresh \
-            && cmake --build build --clean-first \
-            && ctest --output-on-failure --test-dir build
+          set -euo pipefail
+          cmake -S . -B build --fresh
+          cmake --build build --clean-first
+          ctest --output-on-failure --test-dir build
         EOF
