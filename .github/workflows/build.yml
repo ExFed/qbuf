@@ -41,9 +41,12 @@ jobs:
       run: |
         set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
-          git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' \
-            | xargs clang-format --verbose --dry-run --Werror \
-            || echo "::warning::code formatting check failed."
+          if ! ( git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' \
+              | xargs clang-format --verbose --dry-run --Werror )
+          then
+            echo "::warning::code formatting check failed."
+            exit 1
+          fi
         EOF
 
     - name: Build & Test
