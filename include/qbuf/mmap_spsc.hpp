@@ -43,13 +43,7 @@ public:
     static_assert((Capacity & (Capacity - 1)) == 0, "Queue capacity must be a power of 2");
 
 private:
-    MmapSPSC()
-        : head_(0)
-        , tail_(0)
-        , buffer_(nullptr)
-        , fd_(-1) {
-        initialize_mmap();
-    }
+    MmapSPSC() : head_(0), tail_(0), buffer_(nullptr), fd_(-1) { initialize_mmap(); }
 
 public:
     // non-copyable
@@ -68,16 +62,17 @@ public:
      * This handle is intended for use by the single producer thread.
      */
     class Sink {
-    public:
-        explicit Sink(std::shared_ptr<MmapSPSC<T, Capacity>> queue)
-            : queue_(queue) { }
+        friend class MmapSPSC;
+        explicit Sink(std::shared_ptr<MmapSPSC<T, Capacity>> queue) : queue_(queue) { }
 
-        // Non-copyable. Move constructible (reference is re-bound to the same queue)
+    public:
+        // Non-copyable
         Sink(const Sink&) = delete;
         Sink& operator=(const Sink&) = delete;
+
+        // Movable
         Sink(Sink&&) = default;
-        // Not move-assignable due to reference member
-        Sink& operator=(Sink&&) = delete;
+        Sink& operator=(Sink&&) = default;
 
         /**
          * @brief Try to enqueue a single element
@@ -174,16 +169,17 @@ public:
      * This handle is intended for use by the single consumer thread.
      */
     class Source {
-    public:
-        explicit Source(std::shared_ptr<MmapSPSC<T, Capacity>> queue)
-            : queue_(queue) { }
+        friend class MmapSPSC;
+        explicit Source(std::shared_ptr<MmapSPSC<T, Capacity>> queue) : queue_(queue) { }
 
-        // Non-copyable. Move constructible (reference is re-bound to the same queue)
+    public:
+        // Non-copyable
         Source(const Source&) = delete;
         Source& operator=(const Source&) = delete;
+
+        // Movable
         Source(Source&&) = default;
-        // Not move-assignable due to reference member
-        Source& operator=(Source&&) = delete;
+        Source& operator=(Source&&) = default;
 
         /**
          * @brief Try to dequeue a single element

@@ -34,9 +34,7 @@ public:
     );
 
 private:
-    MutexQueue()
-        : head_(0)
-        , tail_(0) { }
+    MutexQueue() : head_(0), tail_(0) { }
 
 public:
     MutexQueue(const MutexQueue&) = delete;
@@ -70,14 +68,18 @@ public:
      * Provides a restricted interface exposing only enqueue operations and utility methods.
      */
     class Sink {
-    public:
-        explicit Sink(std::shared_ptr<MutexQueue<T, Capacity>> queue)
-            : queue_(queue) { }
+    private:
+        friend class MutexQueue;
+        explicit Sink(std::shared_ptr<MutexQueue<T, Capacity>> queue) : queue_(queue) { }
 
+    public:
+        // Non-copyable
         Sink(const Sink&) = delete;
         Sink& operator=(const Sink&) = delete;
+
+        // Movable
         Sink(Sink&&) = default;
-        Sink& operator=(Sink&&) = delete;
+        Sink& operator=(Sink&&) = default;
 
         /**
          * @brief Try to enqueue a single element
@@ -162,14 +164,18 @@ public:
      * Provides a restricted interface exposing only dequeue operations and utility methods.
      */
     class Source {
-    public:
-        explicit Source(std::shared_ptr<MutexQueue<T, Capacity>> queue)
-            : queue_(queue) { }
+    private:
+        friend class MutexQueue;
+        explicit Source(std::shared_ptr<MutexQueue<T, Capacity>> queue) : queue_(queue) { }
 
+    public:
+        // Non-copyable
         Source(const Source&) = delete;
         Source& operator=(const Source&) = delete;
+
+        // Movable
         Source(Source&&) = default;
-        Source& operator=(Source&&) = delete;
+        Source& operator=(Source&&) = default;
 
         /**
          * @brief Try to dequeue a single element

@@ -27,9 +27,7 @@ public:
     static_assert((Capacity & (Capacity - 1)) == 0, "Queue capacity must be a power of 2");
 
 private:
-    SPSC()
-        : head_(0)
-        , tail_(0) { }
+    SPSC() : head_(0), tail_(0) { }
 
 public:
     // non-copyable
@@ -46,16 +44,18 @@ public:
      * This handle is intended for use by the single producer thread.
      */
     class Sink {
-    public:
-        explicit Sink(std::shared_ptr<SPSC<T, Capacity>> queue)
-            : queue_(queue) { }
+    private:
+        friend class SPSC;
+        explicit Sink(std::shared_ptr<SPSC<T, Capacity>> queue) : queue_(queue) { }
 
-        // Non-copyable. Move constructible (reference is re-bound to the same queue)
+    public:
+        // Non-copyable
         Sink(const Sink&) = delete;
         Sink& operator=(const Sink&) = delete;
+
+        // Movable
         Sink(Sink&&) = default;
-        // Not move-assignable due to reference member
-        Sink& operator=(Sink&&) = delete;
+        Sink& operator=(Sink&&) = default;
 
         /**
          * @brief Try to enqueue a single element
@@ -152,16 +152,18 @@ public:
      * This handle is intended for use by the single consumer thread.
      */
     class Source {
-    public:
-        explicit Source(std::shared_ptr<SPSC<T, Capacity>> queue)
-            : queue_(queue) { }
+    private:
+        friend class SPSC;
+        explicit Source(std::shared_ptr<SPSC<T, Capacity>> queue) : queue_(queue) { }
 
-        // Non-copyable. Move constructible (reference is re-bound to the same queue)
+    public:
+        // Non-copyable
         Source(const Source&) = delete;
         Source& operator=(const Source&) = delete;
+
+        // Movable
         Source(Source&&) = default;
-        // Not move-assignable due to reference member
-        Source& operator=(Source&&) = delete;
+        Source& operator=(Source&&) = default;
 
         /**
          * @brief Try to dequeue a single element
@@ -245,9 +247,6 @@ public:
     }
 
 private:
-    friend class Sink;
-    friend class Source;
-
     static constexpr std::size_t increment(std::size_t idx) { return (idx + 1) & (Capacity - 1); }
 
     /**
