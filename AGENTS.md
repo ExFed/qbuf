@@ -6,7 +6,7 @@
 
 - For C++ files (`.cpp`, `.hpp`, `.h`), use `clang-format` with the project's `.clang-format` configuration file located at the workspace root.
 - Format individual files with: `clang-format -i <file>`
-- Format all C++ source files with: `git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' '**/*.h' | xargs clang-format -i`
+- Format all C++ source files with: `./scripts/reformat-code.sh`
 - Agents must run the formatter on any files they modify or create to ensure consistency with the project's code style.
 - This is non-negotiable: unformatted code submissions will be rejected.
 
@@ -35,6 +35,8 @@
 - `tests/test_mmap_spsc.cpp` bundles all memory-mapped queue tests; add new test functions here and register them in `run_all_mmap_spsc_tests()`.
 - `tests/test_mmap_spsc.hpp` declares the `run_all_mmap_spsc_tests()` function.
 - `src/benchmark.cpp` compares performance of SPSC vs MutexQueue; add new benchmark runs here.
+- `scripts` contains utility scripts:
+  - `reformat-code.sh` reformats all C++ source files using `clang-format`.
 - `.clang-format` contains formatting rules matching the project's code style.
 - Guix manifests in `manifest.scm` and `guix.scm` pin GCC 11 + CMake; prefer them when reproducing CI-like environments.
 - `TODO.md` contains a checklist of high-level tasks left to do.

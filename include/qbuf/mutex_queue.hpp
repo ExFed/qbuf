@@ -153,9 +153,7 @@ public:
 
         bool empty() const { return queue_->empty(); }
 
-        std::size_t size() const {
-            return queue_->size();
-        }
+        std::size_t size() const { return queue_->size(); }
 
     private:
         std::shared_ptr<MutexQueue<T, Capacity>> queue_;
