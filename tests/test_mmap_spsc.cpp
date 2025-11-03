@@ -217,46 +217,117 @@ void test_mmap_move_semantics() {
     std::cout << "  PASSED: test_mmap_move_semantics" << std::endl;
 }
 
+namespace {
+// A move-only container type that stores some data.
+template <typename T>
+class MoveOnlyContainer {
+public:
+    explicit MoveOnlyContainer(T data) : data_(data) { }
+
+    MoveOnlyContainer(const MoveOnlyContainer&) = delete;
+    MoveOnlyContainer& operator=(const MoveOnlyContainer&) = delete;
+
+    MoveOnlyContainer(MoveOnlyContainer&& other) noexcept
+            : data_(std::move(other.data_))
+            , num_moved_(other.num_moved_ + 1) {
+        ++other.num_vacated_;
+    }
+
+    MoveOnlyContainer& operator=(MoveOnlyContainer&& other) noexcept {
+        if (this != &other) {
+            data_ = std::move(other.data_);
+            num_moved_ = other.num_moved_ + 1;
+            ++other.num_vacated_;
+        }
+        return *this;
+    }
+
+    T data() const { return data_; }
+
+    int moved() const { return num_moved_; }
+
+    int vacated() const { return num_vacated_; }
+
+    std::basic_ostream<char>& repr(std::basic_ostream<char>& os) const {
+        return os << "MoveOnlyContainer" //
+                  << "(data=" << data_ //
+                  << ", moved=" << num_moved_ //
+                  << ", vacated=" << num_vacated_ //
+                  << ")";
+    }
+
+private:
+    T data_;
+    int num_moved_ { 0 };
+    int num_vacated_ { 0 };
+};
+
+template <typename T>
+inline std::basic_ostream<char>& operator<<(
+    std::basic_ostream<char>& ss, const MoveOnlyContainer<T>& obj
+) {
+    return obj.repr(ss);
+}
+} // namespace
+
 void test_mmap_blocking_rvalue_enqueue_with_movable_type() {
     std::cout << "Testing test_mmap_blocking_rvalue_enqueue_with_movable_type..." << std::endl;
 
-    auto [sink, source] = MmapSPSC<std::unique_ptr<int>, 8>::create();
+    using namespace std::chrono;
+    using namespace std::chrono_literals;
+
+    // Concurrency parameters
+    constexpr auto CAPACITY = 8;
+    constexpr auto ITERS = 20;
+    constexpr auto TIMEOUT = 500ms;
+    constexpr auto BP_DELAY = 50ms;
+    constexpr auto BP_THRESH = 40ms;
+
+    // The queue under test
+    auto [sink, source] = MmapSPSC<MoveOnlyContainer<int>, 8>::create();
 
     // Fill queue to capacity (7 elements, since 1 slot is reserved)
     for (int i = 0; i < 7; ++i) {
-        affirm(sink.try_enqueue(std::make_unique<int>(i)));
+        assert(sink.try_enqueue(MoveOnlyContainer<int>(i)));
     }
-    affirm(!sink.empty());
+    assert(7 == sink.size());
 
-    // Consumer thread: sleep briefly, then drain the queue
-    std::thread consumer([&source]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        for (int i = 0; i < 7; ++i) {
-            auto val = source.try_dequeue();
-            affirm(val.has_value());
-            affirm(*val.value() == i);
-        }
+    // Producer thread: attempt blocking enqueue while full
+    std::thread producer([&]() {
+        auto obj = MoveOnlyContainer<int>(99);
+
+        // Time enqueue call to ensure it blocks
+        auto start = steady_clock::now();
+        bool success = sink.enqueue(std::move(obj), TIMEOUT);
+        auto elapsed = steady_clock::now() - start;
+
+        assert(success); // Confirm enqueue succeeded
+        assert(elapsed >= BP_THRESH); // Confirm blocked due to backpressure
+        assert(1 == obj.vacated()); // Confirm object was moved-from *once*
     });
 
-    // Producer thread: attempt blocking rvalue enqueue with unique_ptr
-    // This should eventually succeed once the consumer drains space
-    auto ptr = std::make_unique<int>(99);
-    auto start = std::chrono::steady_clock::now();
-    bool success = sink.enqueue(std::move(ptr), std::chrono::milliseconds(500));
-    auto elapsed = std::chrono::steady_clock::now() - start;
+    // Apply some backpressure to force the producer to block
+    std::this_thread::sleep_for(BP_DELAY);
 
-    affirm(success);
-    affirm(elapsed >= std::chrono::milliseconds(40));
-    // After successful enqueue, ptr should be moved-from
-    affirm(ptr == nullptr);
+    // Confirm queue is full
+    assert(7 == source.size());
 
-    // Verify the consumer received the moved value correctly
+    // Consume all leading items except the blocked one
+    for (int i = 0; i < 7; ++i) {
+        auto val = source.try_dequeue();
+        assert(val.has_value());
+        assert(val.value().data() == i);
+    }
+
+    // Wait for the producer to be done
+    producer.join();
+
+    // We know the producer has enqueued its last item
     auto received = source.try_dequeue();
-    affirm(received.has_value());
-    // This assertion will fail if ptr was moved-from multiple times (the bug)
-    affirm(*received.value() == 99);
-
-    consumer.join();
+    assert(received.has_value()); // Confirm dequeue was successful
+    assert(1 <= received.value().moved()); // Confirm moved *at least once*
+    assert(0 == received.value().vacated()); // Confirm not moved-from
+    assert(99 == received.value().data()); // Confirm correct data received
 
     std::cout << "  PASSED: test_mmap_blocking_rvalue_enqueue_with_movable_type" << std::endl;
 }
