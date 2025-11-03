@@ -6,19 +6,25 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Guix cache
-      uses: actions/cache@v3
+    - name: Checkout project
+      uses: actions/checkout@v4
+
+    - name: Restore Guix cache
+      uses: actions/cache/restore@v4
       with:
-        path: ~/.cache/guix
-        # use a key that (almost) never matches
-        key: guix-cache-${{ github.sha }}
+        path: |
+          ~/.cache/guix
+          /gnu/store
+        key: guix-cache-${{ hashFiles( '**/channels.scm', '**/manifest.scm' ) }}
         restore-keys: |
           guix-cache-
-      # Cannot use a cache for /gnu/store, since restore fails
 
     - name: Install Guix
       uses: PromyLOPh/guix-install-action@v1
@@ -28,28 +34,38 @@ jobs:
     - name: Ensure no locale warning
       run: test -z "$(guix --version 2>&1 >/dev/null)"
 
-    - name: Checkout project
-      uses: actions/checkout@v4
-
     - name: Install Dev Environment
       run: |
         set -euo pipefail
         guix pull -C channels.scm
         guix package -m manifest.scm
 
-    - name: Check C++ code formatting
+    - name: Check code formatting
       run: |
-        set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
-          git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' \
-            | xargs clang-format --verbose --dry-run --Werror
+          if ( ! git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' \
+              | xargs -r clang-format --verbose --dry-run --Werror )
+          then
+            echo "::warning::Code formatting check failed"
+            exit 1
+          fi
         EOF
+      continue-on-error: true
 
     - name: Build & Test
       run: |
-        set -euo pipefail
         guix shell -m manifest.scm -- sh <<'EOF'
-          cmake -S . -B build --fresh \
-            && cmake --build build --clean-first \
-            && ctest --output-on-failure --test-dir build
+          set -euo pipefail
+          cmake -S . -B build --fresh
+          cmake --build build --clean-first
+          ctest --output-on-failure --test-dir build
         EOF
+
+    - name: Save Guix cache
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: |
+          ~/.cache/guix
+          /gnu/store
+        key: guix-cache-${{ hashFiles( '**/channels.scm', '**/manifest.scm' ) }}

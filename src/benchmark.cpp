@@ -12,8 +12,7 @@ using namespace qbuf;
 // Simple timer class
 class Timer {
 public:
-    Timer()
-        : start_(std::chrono::high_resolution_clock::now()) { }
+    Timer() : start_(std::chrono::high_resolution_clock::now()) { }
 
     double elapsed_ms() const {
         auto end = std::chrono::high_resolution_clock::now();
