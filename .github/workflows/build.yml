@@ -44,7 +44,6 @@ jobs:
           git ls-files --cached --others --exclude-standard -- '**/*.cpp' '**/*.hpp' \
             | xargs clang-format --verbose --dry-run --Werror \
             || echo "::warning::code formatting check failed."
-          fi
         EOF
 
     - name: Build & Test
