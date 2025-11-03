@@ -16,11 +16,6 @@ jobs:
     - name: Checkout project
       uses: actions/checkout@v4
 
-    - name: Install Guix
-      uses: PromyLOPh/guix-install-action@v1
-      with:
-        pullAfterInstall: false
-
     - name: Restore Guix cache
       uses: actions/cache/restore@v4
       with:
@@ -30,6 +25,11 @@ jobs:
         key: guix-cache-${{ hashFiles( '**/channels.scm', '**/manifest.scm' ) }}
         restore-keys: |
           guix-cache-
+
+    - name: Install Guix
+      uses: PromyLOPh/guix-install-action@v1
+      with:
+        pullAfterInstall: false
 
     - name: Ensure no locale warning
       run: test -z "$(guix --version 2>&1 >/dev/null)"
