@@ -478,6 +478,13 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
             csv_path = argv[++i];
+            // Early validation: try to open the file for writing
+            std::ofstream test_file(csv_path);
+            if (!test_file.is_open()) {
+                std::cerr << "Error: Cannot write to CSV file: " << csv_path << std::endl;
+                return 1;
+            }
+            test_file.close();
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             std::cout << "Usage: " << argv[0] << " [OPTIONS]\n\n";
             std::cout << "Options:\n";
