@@ -500,6 +500,10 @@ int main(int argc, char* argv[]) {
             std::cout << "  --csv <path>    Write benchmark results to a CSV file\n";
             std::cout << "  --help, -h      Show this help message\n";
             return 0;
+        } else {
+            std::cerr << "Error: Unknown option: " << argv[i] << std::endl;
+            std::cerr << "Use --help for usage information." << std::endl;
+            return 1;
         }
     }
 
