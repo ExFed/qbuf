@@ -481,7 +481,11 @@ int main(int argc, char* argv[]) {
     // Parse command-line arguments
     std::string csv_path;
     for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
+        if (std::strcmp(argv[i], "--csv") == 0) {
+            if (i + 1 >= argc) {
+                std::cerr << "Error: --csv requires a file path argument" << std::endl;
+                return 1;
+            }
             csv_path = argv[++i];
             // Early validation: try to open the file for writing
             std::ofstream test_file(csv_path);
