@@ -363,6 +363,12 @@ void write_csv(const std::string& filename, const std::vector<BenchmarkResult>& 
              << std::setprecision(6) << result.ops_per_sec << "\n";
     }
 
+    // Check for write errors before reporting success
+    if (!file.good()) {
+        std::cerr << "Error: Failed to write to CSV file: " << filename << std::endl;
+        file.close();
+        return;
+    }
     std::cout << "\n✓ CSV results written to: " << filename << std::endl;
 }
 
