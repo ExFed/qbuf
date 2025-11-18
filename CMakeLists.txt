@@ -23,7 +23,7 @@ install(
 
 # Tests
 enable_testing()
-add_executable(test_runner tests/test_main.cpp tests/test_spsc.cpp tests/test_mmap_spsc.cpp)
+add_executable(test_runner tests/test_main.cpp tests/test_spsc.cpp tests/test_mmap_spsc.cpp tests/test_mutex_queue.cpp)
 target_include_directories(test_runner PRIVATE tests)
 target_link_libraries(test_runner PRIVATE qbuf Threads::Threads)
 add_test(NAME tests COMMAND test_runner)
