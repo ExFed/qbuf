@@ -363,7 +363,6 @@ void write_csv(const std::string& filename, const std::vector<BenchmarkResult>& 
              << std::setprecision(6) << result.ops_per_sec << "\n";
     }
 
-    file.close();
     std::cout << "\n✓ CSV results written to: " << filename << std::endl;
 }
 
