@@ -107,41 +107,46 @@ see [docs/dev-vm.md](docs/dev-vm.md).
 
 QBuf provides multiple queue implementations that share the same high-level API via
 role-based handles:
-- SPSC<T, Capacity>: lock-free single-producer single-consumer ring buffer
-- MmapSPSC<T, Capacity>: SPSC using double-mapped virtual memory (Linux) to simplify wrap-around
-- MutexQueue<T, Capacity>: mutex/condition-variable based circular buffer
+
+* SPSC<T, Capacity>: lock-free single-producer single-consumer ring buffer
+* MmapSPSC<T, Capacity>: SPSC using double-mapped virtual memory (Linux) to simplify wrap-around
+* MutexQueue<T, Capacity>: mutex/condition-variable based circular buffer
 
 All three expose identical role-based handles:
-- Sink: producer-only operations
-- Source: consumer-only operations
+
+* Sink: producer-only operations
+* Source: consumer-only operations
 
 Each implementation provides a factory that returns a pair (Sink, Source). See the
 respective header for the exact factory name and usage examples.
 
 ### Common operations (shared across all queues)
-- Non-blocking single element
-  - Sink::try_enqueue(const T&), Sink::try_enqueue(T&&) -> bool
-  - Source::try_dequeue() -> std::optional<T>
-- Blocking single element (timeout)
-  - Sink::enqueue(const T&, timeout), Sink::enqueue(T&&, timeout) -> bool
-  - Source::dequeue(timeout) -> std::optional<T>
-- Non-blocking bulk
-  - Sink::try_enqueue(const T* data, std::size_t count) -> std::size_t enqueued
-  - Source::try_dequeue(T* out, std::size_t count) -> std::size_t dequeued
-- Blocking bulk (timeout)
-  - Sink::enqueue(const T* data, std::size_t count, timeout) -> bool (all or timeout)
-  - Source::dequeue(T* out, std::size_t count, timeout) -> std::size_t (up to count)
-- Utilities
-  - size() -> std::size_t (approximate)
-  - empty() -> bool (approximate)
+
+* Non-blocking single element
+  * `Sink::try_enqueue(const T&), Sink::try_enqueue(T&&) -> bool`
+  * `Source::try_dequeue() -> std::optional<T>`
+* Blocking single element (timeout)
+  * `Sink::enqueue(const T&, timeout), Sink::enqueue(T&&, timeout) -> bool`
+  * `Source::dequeue(timeout) -> std::optional<T>`
+* Non-blocking bulk
+  * `Sink::try_enqueue(const T* data, std::size_t count) -> std::size_t enqueued`
+  * `Source::try_dequeue(T* out, std::size_t count) -> std::size_t dequeued`
+* Blocking bulk (timeout)
+  * `Sink::enqueue(const T* data, std::size_t count, timeout) -> bool (all or timeout)`
+  * `Source::dequeue(T* out, std::size_t count, timeout) -> std::size_t (up to count)`
+* Utilities
+  * `size() -> std::size_t` (approximate)
+  * `empty() -> bool` (approximate)
 
 ### Implementation notes (high level)
-- SPSC: lock-free with atomics, reserves one slot; Capacity must be power-of-two.
-- MmapSPSC: mirrors SPSC API; uses double mapping on Linux for contiguous virtual space.
-- MutexQueue: same API, uses mutex + condition_variable; Capacity > 1, reserves one slot.
+
+* SPSC: lock-free with atomics, reserves one slot; Capacity must be power-of-two.
+* MmapSPSC: mirrors SPSC API; uses double mapping on Linux for contiguous virtual space.
+* MutexQueue: same API, uses mutex + condition_variable; Capacity > 1, reserves one slot.
 
 For full method signatures, memory ordering details, capacity semantics, and platform
 behavior, see the in-source Doxygen comments in:
-- include/qbuf/spsc.hpp
-- include/qbuf/mmap_spsc.hpp
-- include/qbuf/mutex_queue.hpp
+
+* include/qbuf/spsc.hpp
+* include/qbuf/mmap_spsc.hpp
+* include/qbuf/mutex_queue.hpp
