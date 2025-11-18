@@ -111,7 +111,7 @@ void test_mmap_blocking_enqueue() {
         sink.try_enqueue(i);
     }
 
-    std::thread consumer([&source]() {
+    std::thread consumer([source = std::move(source)]() mutable {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         for (int i = 0; i < 7; ++i) {
             source.try_dequeue();
@@ -135,7 +135,7 @@ void test_mmap_blocking_dequeue() {
 
     auto [sink, source] = MmapSPSC<int, 8>::create();
 
-    std::thread producer([&sink]() {
+    std::thread producer([sink = std::move(sink)]() mutable {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         sink.try_enqueue(42);
     });
@@ -162,7 +162,7 @@ void test_mmap_blocking_bulk_enqueue() {
         sink.try_enqueue(i);
     }
 
-    std::thread consumer([&source]() {
+    std::thread consumer([source = std::move(source)]() mutable {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         std::vector<int> output(10, 0);
         source.try_dequeue(output.data(), 10);
@@ -293,7 +293,7 @@ void test_mmap_blocking_rvalue_enqueue_with_movable_type() {
     assert(7 == sink.size());
 
     // Producer thread: attempt blocking enqueue while full
-    std::thread producer([&]() {
+    std::thread producer([&, sink = std::move(sink)]() mutable {
         auto obj = MoveOnlyContainer<int>(99);
 
         // Time enqueue call to ensure it blocks
@@ -338,7 +338,8 @@ void test_mmap_producer_consumer_stress() {
 
     auto [sink, source] = MmapSPSC<int, 4096>::create();
 
-    std::thread producer([&sink]() {
+    // capture by reference due to assertion below
+    std::thread producer([&sink = sink]() mutable {
         for (std::size_t i = 0; i < total_items; ++i) {
             while (!sink.try_enqueue(static_cast<int>(i))) {
                 std::this_thread::yield();
@@ -346,7 +347,8 @@ void test_mmap_producer_consumer_stress() {
         }
     });
 
-    std::thread consumer([&source]() {
+    // capture by reference due to assertion below
+    std::thread consumer([&source = source]() mutable {
         for (std::size_t i = 0; i < total_items; ++i) {
             std::optional<int> value;
             while (!(value = source.try_dequeue()).has_value()) {

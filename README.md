@@ -13,8 +13,8 @@ C++. The project uses [CMake](https://cmake.org/) for build configuration and
 * If not using GNU Guix, system-wide packages:
   * CMake >= 4.0
   * Make or Ninja build system
-  * A C++ compiler with C++23 support
-    (GCC >= 15, Clang >= 17, MSVC toolset >= v19.44)
+  * A C++ compiler with C++17 support
+    (GCC >= 7, Clang >= 6, MSVC toolset >= v19.14)
 
 ### Using direnv (Recommended)
 

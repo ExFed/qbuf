@@ -40,7 +40,7 @@ void benchmark_individual_ops(int iterations, int batch_size) {
 
     // Producer thread
     Timer timer;
-    std::thread producer([&sink, iterations, batch_size]() {
+    std::thread producer([sink = std::move(sink), iterations, batch_size]() mutable {
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
                 while (!sink.try_enqueue(iter * batch_size + i)) {
@@ -51,7 +51,7 @@ void benchmark_individual_ops(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&source, iterations, batch_size]() {
+    std::thread consumer([source = std::move(source), iterations, batch_size]() mutable {
         int total_consumed = 0;
         int target = iterations * batch_size;
         while (total_consumed < target) {
@@ -85,7 +85,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
 
     // Producer thread
     Timer timer;
-    std::thread producer([&sink, iterations, batch_size]() {
+    std::thread producer([sink = std::move(sink), iterations, batch_size]() mutable {
         std::vector<int> batch(batch_size);
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
@@ -102,7 +102,7 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&source, iterations, batch_size]() {
+    std::thread consumer([source = std::move(source), iterations, batch_size]() mutable {
         std::vector<int> batch(batch_size);
         int total_consumed = 0;
         int target = iterations * batch_size;
@@ -136,7 +136,7 @@ void benchmark_individual_ops_mutex(int iterations, int batch_size) {
 
     // Producer thread
     Timer timer;
-    std::thread producer([&sink, iterations, batch_size]() {
+    std::thread producer([sink = std::move(sink), iterations, batch_size]() mutable {
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
                 while (!sink.try_enqueue(iter * batch_size + i)) {
@@ -147,7 +147,7 @@ void benchmark_individual_ops_mutex(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&source, iterations, batch_size]() {
+    std::thread consumer([source = std::move(source), iterations, batch_size]() mutable {
         int total_consumed = 0;
         int target = iterations * batch_size;
         while (total_consumed < target) {
@@ -181,7 +181,7 @@ void benchmark_bulk_ops_mutex(int iterations, int batch_size) {
 
     // Producer thread
     Timer timer;
-    std::thread producer([&sink, iterations, batch_size]() {
+    std::thread producer([sink = std::move(sink), iterations, batch_size]() mutable {
         std::vector<int> batch(batch_size);
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
@@ -198,7 +198,7 @@ void benchmark_bulk_ops_mutex(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&source, iterations, batch_size]() {
+    std::thread consumer([source = std::move(source), iterations, batch_size]() mutable {
         std::vector<int> batch(batch_size);
         int total_consumed = 0;
         int target = iterations * batch_size;
@@ -232,7 +232,7 @@ void benchmark_individual_ops_mmap(int iterations, int batch_size) {
 
     // Producer thread
     Timer timer;
-    std::thread producer([&sink, iterations, batch_size]() {
+    std::thread producer([sink = std::move(sink), iterations, batch_size]() mutable {
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
                 while (!sink.try_enqueue(iter * batch_size + i)) {
@@ -243,7 +243,7 @@ void benchmark_individual_ops_mmap(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&source, iterations, batch_size]() {
+    std::thread consumer([source = std::move(source), iterations, batch_size]() mutable {
         int total_consumed = 0;
         int target = iterations * batch_size;
         while (total_consumed < target) {
@@ -277,7 +277,7 @@ void benchmark_bulk_ops_mmap(int iterations, int batch_size) {
 
     // Producer thread
     Timer timer;
-    std::thread producer([&sink, iterations, batch_size]() {
+    std::thread producer([sink = std::move(sink), iterations, batch_size]() mutable {
         std::vector<int> batch(batch_size);
         for (int iter = 0; iter < iterations; ++iter) {
             for (int i = 0; i < batch_size; ++i) {
@@ -294,7 +294,7 @@ void benchmark_bulk_ops_mmap(int iterations, int batch_size) {
     });
 
     // Consumer thread
-    std::thread consumer([&source, iterations, batch_size]() {
+    std::thread consumer([source = std::move(source), iterations, batch_size]() mutable {
         std::vector<int> batch(batch_size);
         int total_consumed = 0;
         int target = iterations * batch_size;
