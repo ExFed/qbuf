@@ -1,13 +1,27 @@
 #include <chrono>
+#include <cstring>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <qbuf/mmap_spsc.hpp>
 #include <qbuf/mutex_queue.hpp>
 #include <qbuf/spsc.hpp>
+#include <string>
 #include <thread>
 #include <vector>
 
 using namespace qbuf;
+
+// Structure to hold benchmark results
+struct BenchmarkResult {
+    std::string queue_type;
+    std::string operation_type;
+    std::size_t capacity;
+    int iterations;
+    int batch_size;
+    double elapsed_us;
+    double ops_per_sec;
+};
 
 // Simple timer class
 class Timer {
@@ -32,7 +46,7 @@ private:
 
 // Benchmark: Individual enqueue/dequeue operations
 template <std::size_t Capacity>
-void benchmark_individual_ops(int iterations, int batch_size) {
+BenchmarkResult benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
@@ -73,11 +87,13 @@ void benchmark_individual_ops(int iterations, int batch_size) {
     std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
     std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+
+    return { "SPSC", "Individual", Capacity, iterations, batch_size, elapsed, ops_per_sec };
 }
 
 // Benchmark: Bulk enqueue/dequeue operations
 template <std::size_t Capacity>
-void benchmark_bulk_ops(int iterations, int batch_size) {
+BenchmarkResult benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
@@ -124,11 +140,13 @@ void benchmark_bulk_ops(int iterations, int batch_size) {
     std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
     std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+
+    return { "SPSC", "Bulk", Capacity, iterations, batch_size, elapsed, ops_per_sec };
 }
 
 // Benchmark: Individual enqueue/dequeue operations (MutexQueue)
 template <std::size_t Capacity>
-void benchmark_individual_ops_mutex(int iterations, int batch_size) {
+BenchmarkResult benchmark_individual_ops_mutex(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations (MutexQueue) ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
@@ -169,11 +187,13 @@ void benchmark_individual_ops_mutex(int iterations, int batch_size) {
     std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
     std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+
+    return { "MutexQueue", "Individual", Capacity, iterations, batch_size, elapsed, ops_per_sec };
 }
 
 // Benchmark: Bulk enqueue/dequeue operations (MutexQueue)
 template <std::size_t Capacity>
-void benchmark_bulk_ops_mutex(int iterations, int batch_size) {
+BenchmarkResult benchmark_bulk_ops_mutex(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations (MutexQueue) ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
@@ -220,11 +240,13 @@ void benchmark_bulk_ops_mutex(int iterations, int batch_size) {
     std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
     std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+
+    return { "MutexQueue", "Bulk", Capacity, iterations, batch_size, elapsed, ops_per_sec };
 }
 
 // Benchmark: Individual enqueue/dequeue operations (MmapSPSC)
 template <std::size_t Capacity>
-void benchmark_individual_ops_mmap(int iterations, int batch_size) {
+BenchmarkResult benchmark_individual_ops_mmap(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Individual Operations (MmapSPSC) ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
@@ -265,11 +287,13 @@ void benchmark_individual_ops_mmap(int iterations, int batch_size) {
     std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
     std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+
+    return { "MmapSPSC", "Individual", Capacity, iterations, batch_size, elapsed, ops_per_sec };
 }
 
 // Benchmark: Bulk enqueue/dequeue operations (MmapSPSC)
 template <std::size_t Capacity>
-void benchmark_bulk_ops_mmap(int iterations, int batch_size) {
+BenchmarkResult benchmark_bulk_ops_mmap(int iterations, int batch_size) {
     std::cout << "\n=== Benchmark: Bulk Operations (MmapSPSC) ===" << std::endl;
     std::cout << "Iterations: " << iterations << ", Batch Size: " << batch_size << std::endl;
 
@@ -316,13 +340,40 @@ void benchmark_bulk_ops_mmap(int iterations, int batch_size) {
     std::cout << "Total ops (enq+deq): " << (iterations * batch_size * 2) << std::endl;
     std::cout << "Time: " << std::fixed << std::setprecision(2) << elapsed << " μs" << std::endl;
     std::cout << "Throughput: " << std::scientific << ops_per_sec << " ops/sec" << std::endl;
+
+    return { "MmapSPSC", "Bulk", Capacity, iterations, batch_size, elapsed, ops_per_sec };
+}
+
+// Function to write results to CSV
+void write_csv(const std::string& filename, const std::vector<BenchmarkResult>& results) {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Failed to open CSV file: " << filename << std::endl;
+        return;
+    }
+
+    // Write CSV header
+    file << "queue_type,operation_type,capacity,iterations,batch_size,elapsed_us,ops_per_sec\n";
+
+    // Write data rows
+    for (const auto& result : results) {
+        file << result.queue_type << "," << result.operation_type << "," << result.capacity << ","
+             << result.iterations << "," << result.batch_size << "," << std::fixed
+             << std::setprecision(2) << result.elapsed_us << "," << std::scientific
+             << std::setprecision(6) << result.ops_per_sec << "\n";
+    }
+
+    file.close();
+    std::cout << "\n✓ CSV results written to: " << filename << std::endl;
 }
 
 // Benchmark with varying batch sizes
-void benchmark_comparison() {
+std::vector<BenchmarkResult> benchmark_comparison() {
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
     std::cout << "║           SPSC vs MutexQueue Performance Comparison        ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
+
+    std::vector<BenchmarkResult> results;
 
     std::vector<std::pair<int, int>> configs = {
         { 1000000, 1 }, // Many individual ops
@@ -344,8 +395,8 @@ void benchmark_comparison() {
                   << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
-        benchmark_individual_ops<64>(iterations, batch_size);
-        benchmark_bulk_ops<64>(iterations, batch_size);
+        results.push_back(benchmark_individual_ops<64>(iterations, batch_size));
+        results.push_back(benchmark_bulk_ops<64>(iterations, batch_size));
     }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
@@ -360,8 +411,8 @@ void benchmark_comparison() {
                   << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
-        benchmark_individual_ops_mutex<64>(iterations, batch_size);
-        benchmark_bulk_ops_mutex<64>(iterations, batch_size);
+        results.push_back(benchmark_individual_ops_mutex<64>(iterations, batch_size));
+        results.push_back(benchmark_bulk_ops_mutex<64>(iterations, batch_size));
     }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
@@ -376,8 +427,8 @@ void benchmark_comparison() {
                   << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
-        benchmark_individual_ops<4096>(iterations, batch_size);
-        benchmark_bulk_ops<4096>(iterations, batch_size);
+        results.push_back(benchmark_individual_ops<4096>(iterations, batch_size));
+        results.push_back(benchmark_bulk_ops<4096>(iterations, batch_size));
     }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
@@ -392,8 +443,8 @@ void benchmark_comparison() {
                   << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
-        benchmark_individual_ops_mutex<4096>(iterations, batch_size);
-        benchmark_bulk_ops_mutex<4096>(iterations, batch_size);
+        results.push_back(benchmark_individual_ops_mutex<4096>(iterations, batch_size));
+        results.push_back(benchmark_bulk_ops_mutex<4096>(iterations, batch_size));
     }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
@@ -408,19 +459,41 @@ void benchmark_comparison() {
                   << " batch size" << std::endl;
         std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
 
-        benchmark_individual_ops_mmap<4096>(iterations, batch_size);
-        benchmark_bulk_ops_mmap<4096>(iterations, batch_size);
+        results.push_back(benchmark_individual_ops_mmap<4096>(iterations, batch_size));
+        results.push_back(benchmark_bulk_ops_mmap<4096>(iterations, batch_size));
     }
 
     std::cout << "\n╔════════════════════════════════════════════════════════════╗" << std::endl;
     std::cout << "║                    Benchmark Complete                      ║" << std::endl;
     std::cout << "╚════════════════════════════════════════════════════════════╝" << std::endl;
+
+    return results;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     std::cout << "Queue Performance Benchmark: SPSC vs MutexQueue vs MmapSPSC\n" << std::endl;
 
-    benchmark_comparison();
+    // Parse command-line arguments
+    std::string csv_path;
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
+            csv_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
+            std::cout << "Usage: " << argv[0] << " [OPTIONS]\n\n";
+            std::cout << "Options:\n";
+            std::cout << "  --csv <path>    Write benchmark results to a CSV file\n";
+            std::cout << "  --help, -h      Show this help message\n";
+            return 0;
+        }
+    }
+
+    // Run benchmarks
+    auto results = benchmark_comparison();
+
+    // Write CSV if requested
+    if (!csv_path.empty()) {
+        write_csv(csv_path, results);
+    }
 
     return 0;
 }

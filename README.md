@@ -70,6 +70,9 @@ ctest --output-on-failure --test-dir build
 
 ## Performance Benchmarks
 
+The benchmark compares the performance of all three queue implementations (SPSC,
+MutexQueue, and MmapSPSC) with various batch sizes and capacities.
+
 1. Configure the project.
 2. Build the benchmark target.
 3. Run the benchmark.
@@ -81,6 +84,33 @@ guix shell -m manifest.scm -- sh <<EOF
     cmake --build build -j$(nproc)
     ./build/benchmark
 EOF
+```
+
+### CSV Output
+
+To export benchmark results to a CSV file for analysis in spreadsheets or other
+tools, use the `--csv` flag:
+
+```bash
+./build/benchmark --csv results.csv
+```
+
+The CSV file will contain the following columns:
+- `queue_type`: SPSC, MutexQueue, or MmapSPSC
+- `operation_type`: Individual or Bulk operations
+- `capacity`: Queue capacity (64 or 4096)
+- `iterations`: Number of iterations run
+- `batch_size`: Number of items per batch
+- `elapsed_us`: Time elapsed in microseconds
+- `ops_per_sec`: Throughput in operations per second
+
+Example CSV output:
+```
+queue_type,operation_type,capacity,iterations,batch_size,elapsed_us,ops_per_sec
+SPSC,Individual,64,1000000,1,12838.00,1.557875e+08
+SPSC,Bulk,64,1000000,1,16995.00,1.176817e+08
+MutexQueue,Individual,64,1000000,1,66607.00,3.002687e+07
+MmapSPSC,Individual,4096,1000000,1,6370.00,3.139717e+08
 ```
 
 ## Development VM

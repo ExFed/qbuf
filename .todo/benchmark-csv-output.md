@@ -5,8 +5,8 @@ can import them into spreadsheets for trend analysis.
 
 ## Goals
 
-- [ ] Capture SPSC vs MutexQueue metrics in a CSV file alongside the text
-  report.
+- [ ] Capture SPSC, MutexQueue, and MmapSPSC metrics in a CSV file alongside
+  the text report.
 - [ ] Allow users to specify the CSV output path or fall back to a default.
 - [ ] Document how to enable CSV export in the README or supporting docs.
 
