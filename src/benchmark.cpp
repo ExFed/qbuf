@@ -344,12 +344,31 @@ BenchmarkResult benchmark_bulk_ops_mmap(int iterations, int batch_size) {
     return { "MmapSPSC", "Bulk", Capacity, iterations, batch_size, elapsed, ops_per_sec };
 }
 
+// Helper function to escape CSV fields
+std::string escape_csv_field(const std::string& field) {
+    // If the field contains comma, quote, or newline, wrap it in quotes and escape quotes
+    if (field.find(',') != std::string::npos || field.find('"') != std::string::npos ||
+        field.find('\n') != std::string::npos) {
+        std::string escaped = "\"";
+        for (char c : field) {
+            if (c == '"') {
+                escaped += "\"\""; // Escape quotes by doubling them
+            } else {
+                escaped += c;
+            }
+        }
+        escaped += "\"";
+        return escaped;
+    }
+    return field;
+}
+
 // Function to write results to CSV
-void write_csv(const std::string& filename, const std::vector<BenchmarkResult>& results) {
+bool write_csv(const std::string& filename, const std::vector<BenchmarkResult>& results) {
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Failed to open CSV file: " << filename << std::endl;
-        return;
+        return false;
     }
 
     // Write CSV header
@@ -357,7 +376,8 @@ void write_csv(const std::string& filename, const std::vector<BenchmarkResult>& 
 
     // Write data rows
     for (const auto& result : results) {
-        file << result.queue_type << "," << result.operation_type << "," << result.capacity << ","
+        file << escape_csv_field(result.queue_type) << "," 
+             << escape_csv_field(result.operation_type) << "," << result.capacity << ","
              << result.iterations << "," << result.batch_size << "," << std::fixed
              << std::setprecision(2) << result.elapsed_us << "," << std::scientific
              << std::setprecision(6) << result.ops_per_sec << "\n";
@@ -366,10 +386,10 @@ void write_csv(const std::string& filename, const std::vector<BenchmarkResult>& 
     // Check for write errors before reporting success
     if (!file.good()) {
         std::cerr << "Error: Failed to write to CSV file: " << filename << std::endl;
-        file.close();
-        return;
+        return false;
     }
     std::cout << "\n✓ CSV results written to: " << filename << std::endl;
+    return true;
 }
 
 // Benchmark with varying batch sizes
@@ -512,7 +532,9 @@ int main(int argc, char* argv[]) {
 
     // Write CSV if requested
     if (!csv_path.empty()) {
-        write_csv(csv_path, results);
+        if (!write_csv(csv_path, results)) {
+            return 1;
+        }
     }
 
     return 0;
