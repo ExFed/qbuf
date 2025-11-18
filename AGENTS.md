@@ -29,11 +29,13 @@
   - Factory method `MmapSPSC<T, Capacity>::create()` returns `std::pair<Sink, Source>`.
   - On non-Linux platforms, falls back to regular heap allocation without double-mapping optimization.
   - Requires `Capacity` to be a power of two and reserves one slot (max occupancy = Capacity - 1).
-- `tests/test_main.cpp` is the entry point for the test runner; it delegates to `run_all_spsc_tests()` from `test_spsc.hpp` and `run_all_mmap_spsc_tests()` from `test_mmap_spsc.hpp`.
+- `tests/test_main.cpp` is the entry point for the test runner; it delegates to `run_all_spsc_tests()` from `test_spsc.hpp`, `run_all_mmap_spsc_tests()` from `test_mmap_spsc.hpp`, and `run_all_mutex_queue_tests()` from `test_mutex_queue.hpp`.
 - `tests/test_spsc.cpp` bundles all assertion-based tests; add new test functions here and register them in `run_all_spsc_tests()`.
 - `tests/test_spsc.hpp` declares the `run_all_spsc_tests()` function.
 - `tests/test_mmap_spsc.cpp` bundles all memory-mapped queue tests; add new test functions here and register them in `run_all_mmap_spsc_tests()`.
 - `tests/test_mmap_spsc.hpp` declares the `run_all_mmap_spsc_tests()` function.
+- `tests/test_mutex_queue.cpp` bundles all MutexQueue tests; add new test functions here and register them in `run_all_mutex_queue_tests()`.
+- `tests/test_mutex_queue.hpp` declares the `run_all_mutex_queue_tests()` function.
 - `src/benchmark.cpp` compares performance of SPSC vs MutexQueue; add new benchmark runs here.
 - `scripts` contains utility scripts:
   - `reformat-code.sh` reformats all C++ source files using `clang-format`.
