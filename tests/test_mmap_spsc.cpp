@@ -1,10 +1,8 @@
-#include "test_mmap_spsc.hpp"
-
-#include "../include/qbuf/mmap_spsc.hpp"
 #include "assert.hpp"
 
 #include <chrono>
 #include <iostream>
+#include <qbuf/mmap_spsc.hpp>
 #include <thread>
 #include <vector>
 
@@ -383,4 +381,17 @@ void run_all_mmap_spsc_tests() {
     test_mmap_producer_consumer_stress();
 
     std::cout << "\n=== All MmapSPSC tests passed ===" << std::endl;
+}
+
+int main() {
+    try {
+        run_all_mmap_spsc_tests();
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "\nTest failed with exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "\nTest failed with unknown exception" << std::endl;
+        return 1;
+    }
 }
