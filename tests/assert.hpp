@@ -5,6 +5,10 @@
 
 #include <features.h>
 
+#ifndef __COLD
+#define __COLD // unsupported if not defined
+#endif
+
 __BEGIN_DECLS
 
 /* This prints an "Assertion failed" message and aborts.  */

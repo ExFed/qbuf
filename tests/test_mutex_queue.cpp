@@ -1,5 +1,3 @@
-#include "test_mutex_queue.hpp"
-
 #include "assert.hpp"
 
 #include <atomic>
@@ -672,7 +670,9 @@ void test_mutex_enqueue_timeout_with_space() {
     std::atomic<bool> producer_done { false };
     std::atomic<bool> producer_success { false };
     std::thread producer([&, sink = std::move(sink)]() mutable {
-        producer_success.store(sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release);
+        producer_success.store(
+            sink.enqueue(999, std::chrono::seconds(2)), std::memory_order_release
+        );
         producer_done.store(true, std::memory_order_release);
     });
 
@@ -745,7 +745,9 @@ void test_mutex_bulk_enqueue_timeout_on_full() {
 
     // Try to enqueue bulk with short timeout (should fail)
     std::vector<int> batch = { 100, 101, 102, 103 };
-    assert(!sink.enqueue(batch.data(), batch.size(), std::chrono::milliseconds(50))); // Should timeout
+    assert(
+        !sink.enqueue(batch.data(), batch.size(), std::chrono::milliseconds(50))
+    ); // Should timeout
     assert(source.size() == 7); // Queue unchanged
 
     std::cout << "  PASSED: bulk enqueue timeout on full" << std::endl;
@@ -933,8 +935,9 @@ void test_mutex_graceful_shutdown_with_bulk_operations() {
                 batch_data[i] = batch * 10 + i;
             }
 
-            bool success
-                = sink.enqueue(batch_data.data(), batch_data.size(), std::chrono::milliseconds(100));
+            bool success = sink.enqueue(
+                batch_data.data(), batch_data.size(), std::chrono::milliseconds(100)
+            );
             if (success) {
                 total_produced.fetch_add(10, std::memory_order_release);
             } else if (!producer_shutdown.load(std::memory_order_acquire)) {
@@ -1111,4 +1114,17 @@ void run_all_mutex_queue_tests() {
     test_mutex_sink_source_concurrent();
 
     std::cout << "\n=== All MutexQueue tests passed ===" << std::endl;
+}
+
+int main() {
+    try {
+        run_all_mutex_queue_tests();
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "\nTest failed with exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "\nTest failed with unknown exception" << std::endl;
+        return 1;
+    }
 }

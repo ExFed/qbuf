@@ -1,5 +1,3 @@
-#include "test_spsc.hpp"
-
 #include "assert.hpp"
 
 #include <atomic>
@@ -1646,4 +1644,17 @@ void run_all_spsc_tests() {
     test_source_bulk_with_strings();
 
     std::cout << "\n=== All SPSC tests passed ===" << std::endl;
+}
+
+int main() {
+    try {
+        run_all_spsc_tests();
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "\nTest failed with exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "\nTest failed with unknown exception" << std::endl;
+        return 1;
+    }
 }

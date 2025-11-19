@@ -23,10 +23,20 @@ install(
 
 # Tests
 enable_testing()
-add_executable(test_runner tests/test_main.cpp tests/test_spsc.cpp tests/test_mmap_spsc.cpp tests/test_mutex_queue.cpp)
-target_include_directories(test_runner PRIVATE tests)
-target_link_libraries(test_runner PRIVATE qbuf Threads::Threads)
-add_test(NAME tests COMMAND test_runner)
+
+function(add_test_executable name source)
+  add_executable(${name} ${source})
+  target_include_directories(${name}
+    PRIVATE ${CMAKE_SOURCE_DIR}/tests
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
+  )
+  target_link_libraries(${name} PRIVATE qbuf Threads::Threads)
+  add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+add_test_executable(test_spsc tests/test_spsc.cpp)
+add_test_executable(test_mmap_spsc tests/test_mmap_spsc.cpp)
+add_test_executable(test_mutex_queue tests/test_mutex_queue.cpp)
 
 # Benchmark
 add_executable(benchmark src/benchmark.cpp)
