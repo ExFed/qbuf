@@ -513,7 +513,6 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: Cannot write to CSV file: " << csv_path << std::endl;
                 return 1;
             }
-            test_file.close();
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
             std::cout << "Usage: " << argv[0] << " [OPTIONS]\n\n";
             std::cout << "Options:\n";
