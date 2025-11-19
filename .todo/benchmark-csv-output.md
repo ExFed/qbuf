@@ -5,10 +5,10 @@ can import them into spreadsheets for trend analysis.
 
 ## Goals
 
-- [ ] Capture SPSC vs MutexQueue metrics in a CSV file alongside the text
-  report.
-- [ ] Allow users to specify the CSV output path or fall back to a default.
-- [ ] Document how to enable CSV export in the README or supporting docs.
+- [x] Capture SPSC, MutexQueue, and MmapSPSC metrics in a CSV file alongside
+  the text report.
+- [x] Allow users to specify the CSV output path or fall back to a default.
+- [x] Document how to enable CSV export in the README or supporting docs.
 
 ## Non-goals
 
@@ -17,12 +17,12 @@ can import them into spreadsheets for trend analysis.
 
 ## Implementation Steps
 
-- [ ] Review current benchmark reporting logic in src/benchmark.cpp.
-- [ ] Design a CLI flag or config option to enable CSV output and choose the
+- [x] Review current benchmark reporting logic in src/benchmark.cpp.
+- [x] Design a CLI flag or config option to enable CSV output and choose the
   file path.
-- [ ] Implement CSV serialization that covers all recorded benchmark metrics.
-- [ ] Add a regression test or script that validates CSV generation succeeds.
-- [ ] Update the README with a usage example and expected CSV output snippet.
+- [x] Implement CSV serialization that covers all recorded benchmark metrics.
+- [x] Add a regression test or script that validates CSV generation succeeds.
+- [x] Update the README with a usage example and expected CSV output snippet.
 
 ## Assumptions
 
