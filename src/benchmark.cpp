@@ -6,6 +6,7 @@
 #include <qbuf/mmap_spsc.hpp>
 #include <qbuf/mutex_queue.hpp>
 #include <qbuf/spsc.hpp>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -347,18 +348,26 @@ BenchmarkResult benchmark_bulk_ops_mmap(int iterations, int batch_size) {
 // Helper function to escape CSV fields
 std::string escape_csv_field(const std::string& field) {
     // If the field contains comma, quote, or newline, wrap it in quotes and escape quotes
-    if (field.find(',') != std::string::npos || field.find('"') != std::string::npos ||
-        field.find('\n') != std::string::npos) {
-        std::string escaped = "\"";
+    bool needs_escape = false;
+    for (auto& c : field) {
+        if (c == ',' || c == '"' || c == '\n' || c == '\r') {
+            needs_escape = true;
+            break;
+        }
+    }
+
+    if (needs_escape) {
+        std::stringstream escaped;
+        escaped << "\"";
         for (char c : field) {
             if (c == '"') {
-                escaped += "\"\""; // Escape quotes by doubling them
+                escaped << "\"\""; // Escape quotes by doubling them
             } else {
-                escaped += c;
+                escaped << c;
             }
         }
-        escaped += "\"";
-        return escaped;
+        escaped << "\"";
+        return escaped.str();
     }
     return field;
 }
@@ -372,15 +381,15 @@ bool write_csv(const std::string& filename, const std::vector<BenchmarkResult>& 
     }
 
     // Write CSV header
-    file << "queue_type,operation_type,capacity,iterations,batch_size,elapsed_us,ops_per_sec\n";
+    file << "queue_type,operation_type,capacity,iterations,batch_size,elapsed_us,ops_per_sec\r\n";
 
     // Write data rows
     for (const auto& result : results) {
-        file << escape_csv_field(result.queue_type) << "," 
+        file << escape_csv_field(result.queue_type) << ","
              << escape_csv_field(result.operation_type) << "," << result.capacity << ","
              << result.iterations << "," << result.batch_size << "," << std::fixed
              << std::setprecision(2) << result.elapsed_us << "," << std::scientific
-             << std::setprecision(6) << result.ops_per_sec << "\n";
+             << std::setprecision(6) << result.ops_per_sec << "\r\n";
     }
 
     // Check for write errors before reporting success
@@ -388,7 +397,7 @@ bool write_csv(const std::string& filename, const std::vector<BenchmarkResult>& 
         std::cerr << "Error: Failed to write to CSV file: " << filename << std::endl;
         return false;
     }
-    std::cout << "\n✓ CSV results written to: " << filename << std::endl;
+    std::cout << "\nCSV results written to: " << filename << std::endl;
     return true;
 }
 
@@ -438,6 +447,22 @@ std::vector<BenchmarkResult> benchmark_comparison() {
 
         results.push_back(benchmark_individual_ops_mutex<64>(iterations, batch_size));
         results.push_back(benchmark_bulk_ops_mutex<64>(iterations, batch_size));
+    }
+
+    std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
+    std::cout << "│ Config: varied batch sizes                                  │" << std::endl;
+    std::cout << "│ Queue capacity: 64                                        │" << std::endl;
+    std::cout << "│ Implementation: MmapSPSC (lock-free, double-mapped)        │" << std::endl;
+    std::cout << "└─────────────────────────────────────────────────────────────┘" << std::endl;
+
+    for (const auto& [iterations, batch_size] : configs) {
+        std::cout << "\n─────────────────────────────────────────────────────────────" << std::endl;
+        std::cout << "Configuration: " << iterations << " iterations * " << batch_size
+                  << " batch size" << std::endl;
+        std::cout << "─────────────────────────────────────────────────────────────" << std::endl;
+
+        results.push_back(benchmark_individual_ops_mmap<64>(iterations, batch_size));
+        results.push_back(benchmark_bulk_ops_mmap<64>(iterations, batch_size));
     }
 
     std::cout << "\n┌─────────────────────────────────────────────────────────────┐" << std::endl;
